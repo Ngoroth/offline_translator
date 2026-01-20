@@ -1,6 +1,6 @@
 import numpy as np
 from unittest.mock import patch
-from app.core.audio import AudioRecorder
+from app.core.audio import AudioRecorder, AudioPlayer
 
 
 @patch("app.core.audio.sd.InputStream")
@@ -56,3 +56,38 @@ def test_audio_recorder_extract_buffer(mock_input_stream):
     callback(test_data, 800, None, None)
     chunk3 = recorder.extract_buffer()
     assert len(chunk3) == 800
+
+
+@patch("app.core.audio.sd.InputStream")
+def test_audio_recorder_get_last_chunk(mock_input_stream):
+    """Test get_last_chunk retrieves the most recent samples."""
+    recorder = AudioRecorder(sample_rate=16000)
+    recorder.start()
+    callback = mock_input_stream.call_args.kwargs.get("callback")
+
+    # Add 1000 samples
+    data = np.arange(1000, dtype=np.float32).reshape(-1, 1)
+    callback(data, 1000, None, None)
+
+    # Get last 100 samples
+    chunk = recorder.get_last_chunk(100)
+    assert len(chunk) == 100
+    assert np.array_equal(chunk, np.arange(900, 1000, dtype=np.float32))
+
+
+@patch("app.core.audio.sd.play")
+@patch("app.core.audio.sd.wait")
+@patch("app.core.audio.sd.stop")
+def test_audio_player_play(mock_stop, mock_wait, mock_play):
+    """Test AudioPlayer initializes and plays data."""
+    player = AudioPlayer(sample_rate=16000)
+
+    test_data = np.zeros(1600, dtype=np.float32)
+    player.play(test_data)
+
+    mock_play.assert_called_once()
+    mock_wait.assert_called_once()
+
+    # Test stop
+    player.stop()
+    mock_stop.assert_called_once()

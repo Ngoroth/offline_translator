@@ -101,6 +101,91 @@ async def test_playback_worker_gating(orchestrator):
     # Allow playback
     orchestrator.playback_allowed.set()
     await asyncio.sleep(0.2)  # Give it more time
+    task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_barge_in_logic(orchestrator):
+    """Scenario 3: Pressing PTT during playback should stop everything and start new session."""
+    mock_recorder = MagicMock()
+    mock_input = MagicMock()
+    mock_player = MagicMock()
+
+    # Simulate a running session
+    orchestrator.current_session = 10
+    orchestrator.playback_allowed.set()
+
+    # Setup recorder mock to return something
+    mock_recorder.get_last_chunk.return_value = np.zeros(480)
+    mock_recorder.stop.return_value = np.zeros(8000)
+
+    mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
+    # Keep it pressed for the whole sleep(0.1)
+    mock_input.is_pressed.side_effect = [True] * 10 + [False]
+
+    task = None
+    try:
+        task = asyncio.create_task(
+            orchestrator.audio_capture_task(mock_recorder, mock_input, mock_player)
+        )
+        # Give enough time for one iteration
+        await asyncio.sleep(0.1)
+
+        # Verify barge-in actions (session should have incremented)
+        assert orchestrator.current_session == 11
+        mock_player.stop.assert_called_once()
+        assert not orchestrator.playback_allowed.is_set()  # Blocked while recording
+    finally:
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+
+@pytest.mark.asyncio
+async def test_stt_worker_role_routing(orchestrator):
+    """Scenario 4: Verify STT uses correct language based on role."""
+    mock_stt = MagicMock()
+    mock_stt.transcribe.return_value = "Hello"
+
+    # Payload for Speaker B (Russian)
+    await orchestrator.stt_queue.put(
+        {"role": "b", "audio": np.zeros(1600), "session_id": orchestrator.current_session}
+    )
+
+    task = asyncio.create_task(orchestrator.stt_worker(mock_stt))
+
+    # Wait for completion or timeout
+    try:
+        await asyncio.wait_for(orchestrator.llm_queue.get(), timeout=1.0)
+        # Verify it called STT with 'ru' (from Russian)
+        args, kwargs = mock_stt.transcribe.call_args
+        assert kwargs["language"] == "ru"
+    finally:
+        task.cancel()
+
+
+@pytest.mark.asyncio
+async def test_tts_worker_selection(orchestrator):
+    """Verify TTS worker selects correct service and streams chunks."""
+    mock_service_a = MagicMock()
+    mock_service_a.synthesize_stream.return_value = [np.array([1, 2], dtype=np.float32)]
+
+    tts_services = {"a": mock_service_a}
+    orchestrator.current_session = 1
+
+    await orchestrator.tts_queue.put({"role": "a", "text": "Hello", "session_id": 1})
+
+    task = asyncio.create_task(orchestrator.tts_worker(tts_services))
+
+    # Wait for chunk in playback queue
+    item = await orchestrator.playback_queue.get()
+    assert np.array_equal(item["audio"], np.array([1, 2], dtype=np.float32))
+    assert item["session_id"] == 1
+
+    task.cancel()
 
 
 @pytest.mark.asyncio
@@ -111,9 +196,9 @@ async def test_audio_capture_skips_pure_silence(orchestrator):
     mock_recorder.stop.return_value = np.zeros(8000)
 
     mock_input = MagicMock()
-    mock_input.wait_for_press.return_value = "a"
+    mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
     # Button pressed, then released after a few iterations
-    mock_input.is_pressed.side_effect = [True, True, False]
+    mock_input.is_pressed.side_effect = [True, True, False, False, False]
 
     mock_player = MagicMock()
 
@@ -144,9 +229,9 @@ async def test_audio_capture_multi_phrase(orchestrator):
     mock_recorder.stop.return_value = np.zeros(8000)
 
     mock_input = MagicMock()
-    mock_input.wait_for_press.return_value = "a"
+    mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
     # Pressed for many iterations
-    mock_input.is_pressed.side_effect = [True] * 10 + [False]
+    mock_input.is_pressed.side_effect = [True] * 10 + [False, False, False]
 
     mock_player = MagicMock()
 
