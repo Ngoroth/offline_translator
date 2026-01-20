@@ -1,5 +1,3 @@
-# pyright: reportAny=false
-# pyright: reportExplicitAny=false
 from pathlib import Path
 from typing import Any, Literal
 
@@ -11,22 +9,55 @@ from pydantic import BaseModel, Field
 # Let's use standard Pydantic models and a loader.
 
 
-class HardwareSettings(BaseModel):
-    platform: Literal["windows", "rpi", "auto"] = "auto"
-    input_mode: Literal["keyboard", "gpio"] = "keyboard"
-    audio_input_device_index: int | None = None
-    audio_output_device_index: int | None = None
+class AudioConfig(BaseModel):
+    sample_rate: int = 16000
+    channels: int = 1
+    input_device_index: int | None = None
+    output_device_index: int | None = None
+    playback_during_recording: bool = False
 
 
-class LLMSettings(BaseModel):
+class STTConfig(BaseModel):
+    model_path: str
+    language: str = "en"  # Changed from auto to en for more predictability in simple cases
+    beam_size: int = 5
+
+
+class LLMConfig(BaseModel):
     model_path: str
     n_gpu_layers: int = Field(default=0, description="-1 for all, 0 for CPU")
     n_ctx: int = 4096
+    thread_count: int = 4
+
+
+class TTSConfig(BaseModel):
+    model_path: str
+    speaker_id: int | None = None
+
+
+class SpeakerConfig(BaseModel):
+    name: str = "Unknown"
+    from_lang: str
+    to_lang: str
+    tts_model: str | None = None
+
+
+class InputConfig(BaseModel):
+    ptt_a: str = "space"
+    ptt_b: str = "alt"
 
 
 class AppSettings(BaseModel):
-    hardware: HardwareSettings
-    llm: LLMSettings
+    audio: AudioConfig = Field(default_factory=AudioConfig)
+    stt: STTConfig
+    llm: LLMConfig
+    tts: TTSConfig
+    input: InputConfig = Field(default_factory=InputConfig)
+    speakers: dict[str, SpeakerConfig] = Field(default_factory=dict)
+
+    # Legacy/Platform settings (optional, keeping for compatibility if needed)
+    platform: Literal["windows", "rpi", "auto"] = "auto"
+    input_mode: Literal["keyboard", "gpio"] = "keyboard"
 
 
 def load_settings(config_path: Path | None = None) -> AppSettings:

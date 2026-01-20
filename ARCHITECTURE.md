@@ -1,104 +1,63 @@
 # Architecture Design Document: "Neuromancer Pi"
 
 ## System Overview
-High-performance, configurable offline speech-to-speech translator designed for low-latency real-time dialogue.
-
-The system is built on a **Hardware Agnostic Architecture**, capable of scaling from embedded edge devices (Raspberry Pi 5) to high-end workstations (NVIDIA GPUs). It uses a profile-based configuration system to adapt its AI models and hardware interfaces to the available resources.
+High-performance, configurable offline speech-to-speech translator designed for low-latency real-time dialogue. The system is built on an asynchronous, stream-oriented architecture.
 
 **Key Goals:**
-*   **Low Latency:** Streaming architecture for real-time interaction.
-*   **Privacy:** Fully offline processing.
-*   **Flexibility:** Configurable models, voices, and hardware backends.
-
-## Architecture & Configuration
-
-The system behavior is defined by **Configuration Profiles** (`config.yaml`). This allows the same codebase to run on vastly different hardware by swapping components at runtime.
-
-### Hardware Abstraction Layer (HAL)
-The application interfaces with hardware through abstract protocols, selected via configuration:
-
-1.  **Input Interface (`InputProvider`):**
-    *   *GPIO Mode:* Uses physical buttons (e.g., for Raspberry Pi).
-    *   *Keyboard Mode:* Uses hotkeys (e.g., Spacebar) for development/desktop use.
-
-2.  **Compute Backend (`InferenceEngine`):**
-    *   *CPU/Neon:* Optimized for ARM64/Edge devices.
-    *   *CUDA/Metal:* Offloads processing to discrete GPUs for high-performance nodes.
+*   **Low Latency:** Streaming architecture for real-time interaction (no batching).
+*   **Privacy:** Fully offline processing using GGUF and ONNX models.
+*   **Flexibility:** Profile-based configuration for different hardware (Edge vs. Desktop).
 
 ## Technology Stack
-
-### 1. Intelligence Layer (The Brain)
-*   **Engine:** `llama.cpp` (Python bindings).
-*   **Model:** Configurable GGUF models.
-    *   *Edge Profile:* Qwen 2.5-3B / Qwen 3 (Quantized q4_k_m).
-    *   *Desktop Profile:* Qwen 2.5-14B/72B or Llama 3.
-*   **Optimization:** Managed **KV-Cache** for dialogue context.
-*   **Role:** Context-aware translation, role-playing, slang handling.
-
-### 2. Perception Layer (The Ears)
-*   **Engine:** `whisper.cpp` (OpenAI Whisper C++ port).
-*   **Mode:** Real-time Streaming.
-*   **Model:** Configurable (e.g., `tiny`, `small`, `medium`).
-*   **VAD:** Voice Activity Detection (Silero VAD or WebRTC) triggers segment processing.
-
-### 3. Speech Generation (The Voice)
-*   **Engine:** `Piper TTS`.
-*   **Mode:** Streaming Input (Receives text tokens as they are generated).
-*   **Voices:** Configurable ONNX models (supports ru, en, fa, uk).
+*   **STT (Ears):** `faster-whisper` (streaming mode) with VAD.
+*   **LLM (Brain):** `llama-cpp-python` with KV-Cache and token streaming. Using **Qwen 3 Instruct** models (4B for Desktop, 1.7B for Edge).
+*   **TTS (Voice):** `Piper TTS` (streaming sentence-by-sentence synthesis).
+*   **HAL:** `pynput` (Keyboard PTT), `sounddevice` (Async Audio I/O).
 
 ## Data Pipeline (Asyncio Event Loop)
+The application runs as a set of concurrent workers connected via `asyncio.Queue`:
 
-The application runs as an asynchronous pipeline:
-
-1.  **Audio Capture:**
+1.  **Audio Capture Task:**
     *   Reads microphone into a Ring Buffer.
-    *   VAD monitors for speech/silence.
-    *   **Trigger:** Pause > 0.5s OR Button Release -> Audio Segment -> STT Queue.
+    *   VAD monitors for speech. Trigger: Button Release OR silence > 0.5s.
+    *   Sends audio segments to `STT_Queue`.
 
 2.  **STT Worker:**
-    *   Consumes Audio Segment -> Generates Text (Source Language).
-    *   Updates `ChatHistory`.
+    *   Consumes audio -> Generates source text.
+    *   Sends text to `LLM_Queue`.
 
-3.  **LLM Worker:**
-    *   Consumes Text -> Generates Translation (Token Stream).
-    *   Uses system prompt: *"You are a real-time translator. Translate [Lang A] to [Lang B] preserving tone."*
+3.  **LLM Worker (Streaming):**
+    *   Consumes text -> Generates translation tokens.
+    *   **Accumulator:** Collects tokens into sentences (buffer until punctuation).
+    *   Sends complete sentences to `TTS_Queue`.
 
-4.  **TTS Worker:**
-    *   Consumes Translation Tokens (accumulates by sentence).
-    *   Generates Audio Stream -> Playback Queue.
+4.  **TTS Worker (Streaming):**
+    *   Consumes sentences -> Generates audio chunks via Piper.
+    *   Sends audio to `Playback_Queue`.
 
-5.  **Playback & Interrupts:**
+5.  **Playback & Interrupts (Barge-in):**
     *   Plays audio from queue.
-    *   **Interrupt Logic:** If PTT button is pressed during playback -> Immediately Stop & Clear Queues.
+    *   **Gating:** Playback is blocked while the PTT key is held (configurable).
+    *   **Interrupt Logic:** If PTT is pressed during playback -> Current audio stops, queues are cleared, and a new `session_id` is generated.
 
-## Directory Structure
-```
-src/app/
-├── core/
-│   ├── stt_stream.py    # Whisper streaming wrapper
-│   ├── tts_stream.py    # Piper streaming wrapper
-│   └── llm_service.py   # LLM client (KV-cache management)
-├── hardware/
-│   ├── audio_io.py      # PyAudio Async Reader/Writer
-│   ├── input_handler.py # Abstract Input Provider (GPIO/Keyboard)
-│   └── device_map.py    # Hardware capability detection
-├── utils/
-│   ├── vad.py           # Voice Activity Detection logic
-│   └── buffers.py       # Ring buffer implementation
-├── settings.py          # Configuration & Profile management
-└── main.py              # Asyncio Orchestrator
-```
+## Core Mechanisms
 
-## Example Profiles
+### Session Management
+Every PTT press increments a `session_id`. All worker tasks (STT, LLM, TTS, Playback) check the `session_id` of the data they are processing. If it doesn't match the current global session ID, the data is discarded immediately. This ensures zero "ghost" translations from previous or cancelled interactions.
 
-### Profile A: "Neuromancer Edge" (Production)
-*   **Target:** Raspberry Pi 5 (8GB/16GB).
-*   **Strategy:** Maximize efficiency within thermal/power limits.
-*   **Input:** GPIO (Physical PTT).
-*   **Models:** Qwen 2.5-3B (q4_k_m), Whisper Small.
+### Intelligent Segmentation (Multi-phrase)
+The Audio Capture task uses a "harvesting" approach. If a silence period is detected while the PTT key is still held:
+1. The current audio buffer is extracted and sent to the pipeline.
+2. The pipeline starts processing Part 1 in the background.
+3. The recorder continues capturing Part 2.
+This allows for near-simultaneous translation of long, thoughtful speech.
 
-### Profile B: "Desktop Powerhouse" (Development)
-*   **Target:** Windows/Linux PC with NVIDIA GPU.
-*   **Strategy:** Maximize intelligence and speed.
-*   **Input:** Keyboard (Spacebar PTT).
-*   **Models:** Qwen 2.5-14B (q4_k_m), Whisper Medium.
+### Silent Segment Filtering
+To avoid translating background noise or accidental short clicks, the system only sends segments to the STT worker if the VAD (Voice Activity Detection) actually confirmed the presence of speech within that segment.
+
+## Hardware Abstraction Layer (HAL)
+*   **InputProvider:** Abstract interface for PTT (Keyboard/GPIO).
+*   **AudioIO:** Async wrapper for non-blocking microphone and speaker access.
+
+## Profile Strategy
+Defined in `config.yaml`, allowing runtime switching between models (e.g., Qwen 3B for RPi vs. Qwen 14B for Desktop) and hardware backends (CPU/CUDA).

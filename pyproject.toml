@@ -3,14 +3,18 @@ name = "offline-translator"
 version = "0.1.0"
 description = "Async Offline Speech-to-Speech Translator (RPi 5)"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = [
+    "faster-whisper>=1.2.1",
+    "llama-cpp-python>=0.3.2",
     "loguru>=0.7.3",
     "numpy>=2.4.1",
+    "piper-tts>=1.3.0",
     "pydantic>=2.0.0",
     "pynput>=1.8.1",
     "pyyaml>=6.0",
     "sounddevice>=0.5.3",
+    "webrtcvad-wheels>=2.0.14",
 ]
 
 [project.optional-dependencies]
@@ -27,7 +31,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py312"
 
 [tool.basedpyright]
 venvPath = "."

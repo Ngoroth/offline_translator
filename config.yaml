@@ -5,20 +5,75 @@ current_profile: "desktop_rtx4070"
 
 profiles:
   desktop_rtx4070:
-    hardware:
-      platform: "windows"
-      input_mode: "keyboard"
+    platform: "windows"
+    input_mode: "keyboard"
+    
+    audio:
+      sample_rate: 16000
+      channels: 1
+      playback_during_recording: false
+    
+    stt:
+      model_path: "small"
+      language: "en"
+      beam_size: 5
+
     llm:
-      # Adjust path to where you store your models
-      model_path: "models/qwen2.5-14b-instruct-q4_k_m.gguf"
-      n_gpu_layers: -1 # Offload all to GPU
+      model_path: "models/llm/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+      n_gpu_layers: -1
       n_ctx: 4096
+      thread_count: 8
+
+    tts:
+      model_path: "models/tts/en_US-libritts_r-medium.onnx"
+    
+    input:
+      ptt_a: "space"
+      ptt_b: "alt"
+
+    speakers:
+      a:
+        name: "Speaker A"
+        from_lang: "English"
+        to_lang: "Russian"
+        tts_model: "models/tts/ru_RU-denis-medium.onnx" # Example Russian voice
+      b:
+        name: "Speaker B"
+        from_lang: "Russian"
+        to_lang: "English"
+        tts_model: "models/tts/en_US-libritts_r-medium.onnx" # Example English voice
 
   rpi_deployment:
-    hardware:
-      platform: "rpi"
-      input_mode: "gpio"
+    platform: "rpi"
+    input_mode: "gpio"
+    
+    audio:
+      sample_rate: 16000
+      channels: 1
+      playback_during_recording: false
+    
+    stt:
+      model_path: "tiny"
+      language: "en"
+      beam_size: 1
+
     llm:
-      model_path: "models/qwen2.5-3b-instruct-q4_k_m.gguf"
-      n_gpu_layers: 0 # CPU only
+      model_path: "models/llm/Qwen3-1.7B-Q4_K_M.gguf"
+      n_gpu_layers: 0
       n_ctx: 2048
+      thread_count: 4
+
+    tts:
+      model_path: "models/tts/en_US-libritts_r-medium.onnx"
+      
+    input:
+      ptt_a: "space"
+      ptt_b: "alt"
+
+    speakers:
+      a:
+        from_lang: "English"
+        to_lang: "Russian"
+      b:
+        from_lang: "Russian"
+        to_lang: "English"
