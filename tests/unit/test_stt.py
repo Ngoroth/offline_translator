@@ -4,7 +4,7 @@ from app.services.stt import STTService
 
 
 @patch("app.services.stt.WhisperModel")
-def test_stt_transcribe(mock_whisper):
+def test_stt_transcribe(mock_whisper: MagicMock) -> None:
     """Test that STTService transcribes audio data."""
     # Setup mock model
     mock_model_instance = mock_whisper.return_value

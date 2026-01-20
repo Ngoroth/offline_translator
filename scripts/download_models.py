@@ -8,7 +8,7 @@ def download_file(url: str, dest: Path):
         return
     print(f"Downloading {url} to {dest}...")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    urllib.request.urlretrieve(url, dest)
+    _ = urllib.request.urlretrieve(url, dest)
 
 
 def main():

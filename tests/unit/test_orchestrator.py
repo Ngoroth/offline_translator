@@ -1,12 +1,14 @@
 import asyncio
+from typing import Any
 import pytest
 import numpy as np
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from app.main import Orchestrator
+from app.services.tts import TTSService
 
 
 @pytest.fixture
-def orchestrator():
+def orchestrator() -> Orchestrator:
     with patch("app.main.load_settings") as mock_load:
         mock_settings = MagicMock()
         mock_settings.audio.sample_rate = 16000
@@ -28,21 +30,23 @@ def orchestrator():
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_clear_queues(orchestrator):
-    await orchestrator.stt_queue.put("item")
+async def test_orchestrator_clear_queues(orchestrator: Orchestrator) -> None:
+    await orchestrator.stt_queue.put(
+        {"role": "a", "audio": np.zeros(1600, dtype=np.float32), "session_id": 1}
+    )
     orchestrator.clear_queues()
     assert orchestrator.stt_queue.empty()
 
 
 @pytest.mark.asyncio
-async def test_stt_worker_skips_old_session(orchestrator):
+async def test_stt_worker_skips_old_session(orchestrator: Orchestrator) -> None:
     mock_stt = MagicMock()
     orchestrator.current_session = 2
 
     await orchestrator.stt_queue.put(
         {
             "role": "a",
-            "audio": np.zeros(1600),
+            "audio": np.zeros(1600, dtype=np.float32),
             "session_id": 1,  # Old session
         }
     )
@@ -57,10 +61,10 @@ async def test_stt_worker_skips_old_session(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_llm_worker_streaming(orchestrator):
+async def test_llm_worker_streaming(orchestrator: Orchestrator) -> None:
     mock_translator = MagicMock()
 
-    async def mock_translate_stream(*args):
+    async def mock_translate_stream(*_args: Any, **_kwargs: Any):
         yield "Hello."
         yield " How"
         yield " are"
@@ -84,13 +88,15 @@ async def test_llm_worker_streaming(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_playback_worker_gating(orchestrator):
+async def test_playback_worker_gating(orchestrator: Orchestrator) -> None:
     mock_player = MagicMock()
     orchestrator.settings.audio.playback_during_recording = False
     orchestrator.playback_allowed.clear()  # Simulate recording in progress
     orchestrator.current_session = 1  # Match session ID
 
-    await orchestrator.playback_queue.put({"audio": np.zeros(1600), "session_id": 1})
+    await orchestrator.playback_queue.put(
+        {"audio": np.zeros(1600, dtype=np.float32), "session_id": 1}
+    )
 
     task = asyncio.create_task(orchestrator.playback_worker(mock_player))
     await asyncio.sleep(0.1)
@@ -105,7 +111,7 @@ async def test_playback_worker_gating(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_barge_in_logic(orchestrator):
+async def test_orchestrator_barge_in_logic(orchestrator: Orchestrator) -> None:
     """Scenario 3: Pressing PTT during playback should stop everything and start new session."""
     mock_recorder = MagicMock()
     mock_input = MagicMock()
@@ -116,8 +122,8 @@ async def test_orchestrator_barge_in_logic(orchestrator):
     orchestrator.playback_allowed.set()
 
     # Setup recorder mock to return something
-    mock_recorder.get_last_chunk.return_value = np.zeros(480)
-    mock_recorder.stop.return_value = np.zeros(8000)
+    mock_recorder.get_last_chunk.return_value = np.zeros(480, dtype=np.float32)
+    mock_recorder.stop.return_value = np.zeros(8000, dtype=np.float32)
 
     mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
     # Keep it pressed for the whole sleep(0.1)
@@ -126,7 +132,11 @@ async def test_orchestrator_barge_in_logic(orchestrator):
     task = None
     try:
         task = asyncio.create_task(
-            orchestrator.audio_capture_task(mock_recorder, mock_input, mock_player)
+            orchestrator.audio_capture_task(
+                mock_recorder,
+                mock_input,
+                mock_player,
+            )
         )
         # Give enough time for one iteration
         await asyncio.sleep(0.1)
@@ -145,35 +155,42 @@ async def test_orchestrator_barge_in_logic(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_stt_worker_role_routing(orchestrator):
+async def test_stt_worker_role_routing(orchestrator: Orchestrator) -> None:
     """Scenario 4: Verify STT uses correct language based on role."""
     mock_stt = MagicMock()
     mock_stt.transcribe.return_value = "Hello"
 
     # Payload for Speaker B (Russian)
     await orchestrator.stt_queue.put(
-        {"role": "b", "audio": np.zeros(1600), "session_id": orchestrator.current_session}
+        {
+            "role": "b",
+            "audio": np.zeros(1600, dtype=np.float32),
+            "session_id": orchestrator.current_session,
+        }
     )
 
     task = asyncio.create_task(orchestrator.stt_worker(mock_stt))
 
     # Wait for completion or timeout
     try:
-        await asyncio.wait_for(orchestrator.llm_queue.get(), timeout=1.0)
+        item = await asyncio.wait_for(orchestrator.llm_queue.get(), timeout=1.0)
+        assert item is not None
         # Verify it called STT with 'ru' (from Russian)
-        args, kwargs = mock_stt.transcribe.call_args
+        call_args = mock_stt.transcribe.call_args
+        assert call_args is not None
+        _, kwargs = call_args
         assert kwargs["language"] == "ru"
     finally:
         task.cancel()
 
 
 @pytest.mark.asyncio
-async def test_tts_worker_selection(orchestrator):
+async def test_tts_worker_selection(orchestrator: Orchestrator) -> None:
     """Verify TTS worker selects correct service and streams chunks."""
     mock_service_a = MagicMock()
     mock_service_a.synthesize_stream.return_value = [np.array([1, 2], dtype=np.float32)]
 
-    tts_services = {"a": mock_service_a}
+    tts_services: dict[str, TTSService] = {"a": mock_service_a}
     orchestrator.current_session = 1
 
     await orchestrator.tts_queue.put({"role": "a", "text": "Hello", "session_id": 1})
@@ -189,11 +206,11 @@ async def test_tts_worker_selection(orchestrator):
 
 
 @pytest.mark.asyncio
-async def test_audio_capture_skips_pure_silence(orchestrator):
+async def test_audio_capture_skips_pure_silence(orchestrator: Orchestrator) -> None:
     mock_recorder = MagicMock()
-    mock_recorder.get_last_chunk.return_value = np.zeros(480)  # 30ms @ 16k
-    mock_recorder.extract_buffer.return_value = np.zeros(8000)
-    mock_recorder.stop.return_value = np.zeros(8000)
+    mock_recorder.get_last_chunk.return_value = np.zeros(480, dtype=np.float32)  # 30ms @ 16k
+    mock_recorder.extract_buffer.return_value = np.zeros(8000, dtype=np.float32)
+    mock_recorder.stop.return_value = np.zeros(8000, dtype=np.float32)
 
     mock_input = MagicMock()
     mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
@@ -215,18 +232,22 @@ async def test_audio_capture_skips_pure_silence(orchestrator):
         mock_sd.is_silent_timeout.return_value = True
 
         task = asyncio.create_task(
-            orchestrator.audio_capture_task(mock_recorder, mock_input, mock_player)
+            orchestrator.audio_capture_task(
+                mock_recorder,
+                mock_input,
+                mock_player,
+            )
         )
         await asyncio.sleep(0.2)
         task.cancel()
 
 
 @pytest.mark.asyncio
-async def test_audio_capture_multi_phrase(orchestrator):
+async def test_audio_capture_multi_phrase(orchestrator: Orchestrator) -> None:
     mock_recorder = MagicMock()
-    mock_recorder.get_last_chunk.return_value = np.zeros(480)
-    mock_recorder.extract_buffer.return_value = np.zeros(8000)
-    mock_recorder.stop.return_value = np.zeros(8000)
+    mock_recorder.get_last_chunk.return_value = np.zeros(480, dtype=np.float32)
+    mock_recorder.extract_buffer.return_value = np.zeros(8000, dtype=np.float32)
+    mock_recorder.stop.return_value = np.zeros(8000, dtype=np.float32)
 
     mock_input = MagicMock()
     mock_input.wait_for_press.side_effect = ["a", asyncio.CancelledError]
@@ -270,7 +291,11 @@ async def test_audio_capture_multi_phrase(orchestrator):
         ]
 
         task = asyncio.create_task(
-            orchestrator.audio_capture_task(mock_recorder, mock_input, mock_player)
+            orchestrator.audio_capture_task(
+                mock_recorder,
+                mock_input,
+                mock_player,
+            )
         )
         await asyncio.sleep(0.5)
         task.cancel()

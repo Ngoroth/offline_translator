@@ -3,7 +3,7 @@ from pathlib import Path
 from app.settings import load_settings, AppSettings
 
 
-def test_load_settings_full_schema(tmp_path):
+def test_load_settings_full_schema(tmp_path: Path):
     """
     Test that load_settings correctly loads all configuration sections
     defined in the PRD (Audio, STT, LLM, TTS, Input).

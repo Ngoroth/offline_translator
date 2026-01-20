@@ -36,6 +36,36 @@ target-version = "py312"
 [tool.basedpyright]
 venvPath = "."
 venv = ".venv"
+typeCheckingMode = "recommended"
+reportMissingTypeStubs = false
+stubPath = "src/typings"
+# Global strictness (will be inherited by src)
+reportAny = "error"
+reportExplicitAny = "error"
+reportUnusedCallResult = "error"
+reportUnknownMemberType = "error"
+reportUnknownVariableType = "error"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportAny = "none"
+reportExplicitAny = "none"
+reportUnusedCallResult = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownParameterType = "none"
+reportUnknownArgumentType = "none"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src/typings"
+reportAny = "none"
+reportExplicitAny = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "src"
+# Inherits global strictness
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/app"]

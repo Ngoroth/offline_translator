@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal, cast
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, TypeAdapter
 
 # We use pydantic directly as BaseSettings might require pydantic-settings package
 # which we haven't explicitly checked for, but we added pydantic.
@@ -67,14 +67,15 @@ def load_settings(config_path: Path | None = None) -> AppSettings:
         raise FileNotFoundError(f"Config file not found: {target_path}")
 
     with open(target_path, "r") as f:
-        config_data: dict[str, Any] = yaml.safe_load(f)
+        config_data = cast(dict[str, object], yaml.safe_load(f))
 
     # Handle profile selection
     if "current_profile" in config_data:
-        profile = config_data["current_profile"]
-        if profile not in config_data.get("profiles", {}):
+        profile = cast(str, config_data["current_profile"])
+        profiles = cast(dict[str, dict[str, object]], config_data.get("profiles", {}))
+        if profile not in profiles:
             raise ValueError(f"Profile '{profile}' not found in config")
-        data = config_data["profiles"][profile]
-        return AppSettings(**data)
+        data = profiles[profile]
+        return TypeAdapter(AppSettings).validate_python(data)
 
-    return AppSettings(**config_data)
+    return TypeAdapter(AppSettings).validate_python(config_data)

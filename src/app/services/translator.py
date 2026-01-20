@@ -1,10 +1,13 @@
-from typing import Any, Iterator, cast
+from typing import cast
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 import asyncio
-from llama_cpp import Llama, CreateChatCompletionStreamResponse
+from llama_cpp import Llama, CreateChatCompletionStreamResponse, CreateChatCompletionResponse
 
 
 class TranslatorService:
+    llm: Llama
+
     def __init__(
         self, model_path: str, n_ctx: int = 2048, n_gpu_layers: int = 0, thread_count: int = 4
     ):
@@ -31,19 +34,24 @@ class TranslatorService:
             "Output ONLY the translated text without any explanations, notes, or quotes."
         )
 
-        response: Any = self.llm.create_chat_completion(
+        raw_response = self.llm.create_chat_completion(
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text},
             ],
             temperature=0.1,
             max_tokens=512,
+            stream=False,
         )
 
-        translated_text: str = response["choices"][0]["message"]["content"].strip()
-        return translated_text
+        resp = cast(CreateChatCompletionResponse, raw_response)
+        choices = resp["choices"]
+        first_choice = choices[0]
+        message = first_choice["message"]
+        content = message["content"]
+        return str(content).strip()
 
-    async def translate_stream(self, text: str, from_lang: str, to_lang: str):
+    async def translate_stream(self, text: str, from_lang: str, to_lang: str) -> AsyncIterator[str]:
         """
         Translate text from one language to another with token streaming.
         Yields tokens as they are generated.
@@ -54,8 +62,8 @@ class TranslatorService:
             "Output ONLY the translated text without any explanations, notes, or quotes."
         )
 
-        def get_iter():
-            return self.llm.create_chat_completion(
+        def get_iter() -> Iterator[CreateChatCompletionStreamResponse]:
+            raw_resp = self.llm.create_chat_completion(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": text},
@@ -64,12 +72,12 @@ class TranslatorService:
                 max_tokens=512,
                 stream=True,
             )
+            return cast(Iterator[CreateChatCompletionStreamResponse], raw_resp)
 
         response_iter = await asyncio.to_thread(get_iter)
-        # Ensure it's an iterator
-        it = cast(Iterator[CreateChatCompletionStreamResponse], response_iter)
+        it = response_iter
 
-        def get_next():
+        def get_next() -> tuple[CreateChatCompletionStreamResponse | None, bool]:
             try:
                 return next(it), False
             except StopIteration:
@@ -83,4 +91,6 @@ class TranslatorService:
             if chunk:
                 delta = chunk["choices"][0]["delta"]
                 if "content" in delta:
-                    yield delta["content"]
+                    content = delta["content"]
+                    if content is not None:
+                        yield content

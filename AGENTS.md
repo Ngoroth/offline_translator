@@ -2,6 +2,13 @@
 
 This file provides guidance for AI coding agents working in this repository.
 
+## Global Mandates
+
+- **Zero Lint/Type Issues**: You MUST fix all issues reported by `ruff` and `basedpyright`.
+- **No Ignores**: You are STRICTLY FORBIDDEN from adding `# noqa`, `# type: ignore`, or any other lint/type suppression comments.
+- **Test Integrity**: You are STRICTLY FORBIDDEN from deleting or disabling existing tests. Fix the code or the tests instead.
+- **Proactiveness**: If you see a linting or typing issue, fix it immediately as part of your task.
+
 ## Knowledge Freshness
 
 **Your training data is outdated** (approximately August 2025). The current date is available

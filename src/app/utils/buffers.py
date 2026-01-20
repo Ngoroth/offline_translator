@@ -5,6 +5,12 @@ import threading
 class AudioRingBuffer:
     """A thread-safe ring buffer for audio samples."""
 
+    capacity: int
+    buffer: np.ndarray[tuple[int], np.dtype[np.float32]]
+    write_index: int
+    size: int
+    lock: threading.Lock
+
     def __init__(self, capacity: int):
         self.capacity = capacity
         self.buffer = np.zeros(capacity, dtype=np.float32)

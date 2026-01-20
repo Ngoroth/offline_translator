@@ -1,9 +1,10 @@
 import numpy as np
 from faster_whisper import WhisperModel
-from typing import Any
 
 
 class STTService:
+    model: WhisperModel
+
     def __init__(self, model_path: str, device: str = "cpu", compute_type: str = "int8"):
         """
         Initialize the Faster-Whisper model.
@@ -15,7 +16,11 @@ class STTService:
         """
         self.model = WhisperModel(model_path, device=device, compute_type=compute_type)
 
-    def transcribe(self, audio_data: np.ndarray[Any, Any], language: str | None = None) -> str:
+    def transcribe(
+        self,
+        audio_data: np.ndarray[tuple[int], np.dtype[np.float32]],
+        language: str | None = None,
+    ) -> str:
         """
         Transcribe audio data to text.
 

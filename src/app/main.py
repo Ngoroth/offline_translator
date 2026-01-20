@@ -1,9 +1,11 @@
 import asyncio
-import sys
 from pathlib import Path
+from typing import TypedDict
+import numpy as np
 from loguru import logger
 
-from app.settings import load_settings
+from app.settings import AppSettings, load_settings
+
 from app.core.output_console import ConsoleOutput
 from app.core.input_windows import KeyboardInput
 from app.core.audio import AudioRecorder, AudioPlayer
@@ -13,12 +15,46 @@ from app.services.tts import TTSService
 from app.utils.vad import VADService, SilenceDetector
 
 
+class STTPayload(TypedDict):
+    role: str
+    audio: np.ndarray[tuple[int], np.dtype[np.float32]]
+    session_id: int
+
+
+class LLMPayload(TypedDict):
+    role: str
+    text: str
+    session_id: int
+
+
+class TTSPayload(TypedDict):
+    role: str
+    text: str
+    session_id: int
+
+
+class PlaybackPayload(TypedDict):
+    audio: np.ndarray[tuple[int], np.dtype[np.float32]]
+    session_id: int
+
+
 class Orchestrator:
+    settings: AppSettings
+    output: ConsoleOutput
+    stt_queue: asyncio.Queue[STTPayload]
+    llm_queue: asyncio.Queue[LLMPayload]
+    tts_queue: asyncio.Queue[TTSPayload]
+    playback_queue: asyncio.Queue[PlaybackPayload]
+    is_recording: bool
+    interrupt_event: asyncio.Event
+    playback_allowed: asyncio.Event
+    current_session: int
+
     def __init__(self):
         self.settings = load_settings()
         self.output = ConsoleOutput()
 
-        # Queues (now passing dictionaries with 'role' and 'data')
+        # Queues
         self.stt_queue = asyncio.Queue()
         self.llm_queue = asyncio.Queue()
         self.tts_queue = asyncio.Queue()
@@ -35,12 +71,14 @@ class Orchestrator:
         for q in [self.stt_queue, self.llm_queue, self.tts_queue, self.playback_queue]:
             while not q.empty():
                 try:
-                    q.get_nowait()
+                    _ = q.get_nowait()
                     q.task_done()
                 except (asyncio.QueueEmpty, ValueError):
                     break
 
-    async def audio_capture_task(self, recorder, input_handler, player):
+    async def audio_capture_task(
+        self, recorder: AudioRecorder, input_handler: KeyboardInput, player: AudioPlayer
+    ):
         vad = VADService(sample_rate=self.settings.audio.sample_rate)
         silence_detector = SilenceDetector(sample_rate=self.settings.audio.sample_rate)
 
@@ -116,7 +154,7 @@ class Orchestrator:
 
             self.playback_allowed.set()  # Allow playback after button release
 
-    async def stt_worker(self, stt_service):
+    async def stt_worker(self, stt_service: STTService):
         # Mapping for human-readable names to ISO codes
         lang_map = {
             "english": "en",
@@ -162,7 +200,7 @@ class Orchestrator:
             finally:
                 self.stt_queue.task_done()
 
-    async def llm_worker(self, translator_service):
+    async def llm_worker(self, translator_service: TranslatorService):
         while True:
             payload = await self.llm_queue.get()
             session_id = payload["session_id"]
@@ -208,7 +246,7 @@ class Orchestrator:
             finally:
                 self.llm_queue.task_done()
 
-    async def tts_worker(self, tts_services):
+    async def tts_worker(self, tts_services: dict[str, TTSService]):
         while True:
             payload = await self.tts_queue.get()
             session_id = payload["session_id"]
@@ -236,7 +274,7 @@ class Orchestrator:
             finally:
                 self.tts_queue.task_done()
 
-    async def playback_worker(self, player):
+    async def playback_worker(self, player: AudioPlayer):
         while True:
             payload = await self.playback_queue.get()
             session_id = payload["session_id"]
@@ -248,7 +286,7 @@ class Orchestrator:
 
             # If we don't allow playback during recording, wait for permission
             if not self.settings.audio.playback_during_recording:
-                await self.playback_allowed.wait()
+                _ = await self.playback_allowed.wait()
 
             if session_id != self.current_session or self.interrupt_event.is_set():
                 # Playback interrupted, wait for next clean state
@@ -286,7 +324,7 @@ class Orchestrator:
         )
 
         # Initialize TTS services (one per speaker if models differ)
-        tts_services = {}
+        tts_services: dict[str, TTSService] = {}
         default_tts = TTSService(model_path=self.settings.tts.model_path)
         tts_services["default"] = default_tts
 
@@ -313,7 +351,7 @@ class Orchestrator:
         self.output.status("Ready! Press Space (A) or Alt (B).")
 
         # Start Tasks
-        await asyncio.gather(
+        _ = await asyncio.gather(
             self.audio_capture_task(recorder, input_handler, player),
             self.stt_worker(stt),
             self.llm_worker(translator),
@@ -323,7 +361,7 @@ class Orchestrator:
 
 
 def main():
-    logger.add("logs/app.log", rotation="10 MB")
+    _ = logger.add("logs/app.log", rotation="10 MB")
     orchestrator = Orchestrator()
     try:
         asyncio.run(orchestrator.run())
