@@ -3,6 +3,10 @@ import numpy as np
 from faster_whisper import WhisperModel
 from loguru import logger
 from app.core.config import STTSettings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.orchestrator.session import SessionManager
 
 
 class STTError(Exception):
@@ -28,15 +32,17 @@ class STTService:
     Speech-to-Text service using Faster-Whisper.
     """
 
-    def __init__(self, settings: STTSettings):
+    def __init__(self, settings: STTSettings, session_manager: "SessionManager | None" = None):
         """
         Initialize the STT service with settings.
         Model is loaded lazily on first transcription or can be loaded explicitly.
 
         Args:
             settings: STT-specific settings.
+            session_manager: Optional SessionManager for cancellation checks.
         """
         self.settings: STTSettings = settings
+        self.session_manager: "SessionManager | None" = session_manager
         self._model: WhisperModel | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
 
@@ -68,19 +74,24 @@ class STTService:
                     ) from e
             return self._model
 
-    async def transcribe(self, audio: np.ndarray) -> str:
+    async def transcribe(self, audio: np.ndarray, session_id: str | None = None) -> str | None:
         """
         Transcribe 16kHz mono float32 audio to text.
 
         Args:
             audio: Numpy array of audio samples.
+            session_id: Optional session ID to check for cancellation.
 
         Returns:
-            The gathered transcribed text.
+            The gathered transcribed text, or None if cancelled.
 
         Raises:
             STTTranscriptionError: If transcription fails.
         """
+        if session_id and self.session_manager and not self.session_manager.is_valid(session_id):
+            logger.debug(f"STT: Pre-check cancelled for session {session_id}")
+            return None
+
         model = await self._get_model()
 
         try:
@@ -101,7 +112,25 @@ class STTService:
             logger.debug("Starting transcription...")
             start_time = asyncio.get_event_loop().time()
 
-            text, info = await asyncio.to_thread(_run_transcription)
+            async with self._lock:
+                # Check validity again after acquiring lock
+                if (
+                    session_id
+                    and self.session_manager
+                    and not self.session_manager.is_valid(session_id)
+                ):
+                    logger.debug(f"STT: Locked pre-check cancelled for session {session_id}")
+                    return None
+
+                text, info = await asyncio.to_thread(_run_transcription)
+
+            if (
+                session_id
+                and self.session_manager
+                and not self.session_manager.is_valid(session_id)
+            ):
+                logger.debug(f"STT: Post-check cancelled for session {session_id}")
+                return None
 
             duration = asyncio.get_event_loop().time() - start_time
             logger.debug(

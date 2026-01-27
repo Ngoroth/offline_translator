@@ -6,10 +6,11 @@ from loguru import logger
 from app.core.config import AppSettings
 from app.core.types import AudioPayload, TextPayload, TranslationPayload
 from app.core.audio import AudioRecorder, AudioPlayer
-from app.orchestrator.session import Session, SessionState
+from app.orchestrator.session import Session, SessionState, SessionManager
 from app.services.stt import STTService
 from app.services.llm import LLMService
 from app.services.tts import TTSService
+from app.utils.vad import VADService, SilenceDetector
 
 
 from typing import final
@@ -33,8 +34,26 @@ class TranslationPipeline:
         self.recorder = recorder
         self.player = player
 
+        self.session_manager = SessionManager()
+
+        # Inject session manager into services for cooperative cancellation
+        self.stt.session_manager = self.session_manager
+        self.llm.session_manager = self.session_manager
+        self.tts.session_manager = self.session_manager
+
         self.session: Session | None = None
         self.tasks: list[Task[None]] = []
+        self.vad_task: Task[None] | None = None
+
+        # VAD Components
+        self.vad_service = VADService(
+            aggressiveness=settings.vad.aggressiveness,
+            sample_rate=settings.audio.sample_rate,
+        )
+        self.silence_detector = SilenceDetector(
+            threshold_ms=settings.vad.threshold_ms,
+            sample_rate=settings.audio.sample_rate,
+        )
 
         # Queues
         self.stt_queue: asyncio.Queue[AudioPayload | None] = asyncio.Queue()
@@ -52,7 +71,8 @@ class TranslationPipeline:
         if self.session and not self.session.cancel_event.is_set():
             await self.stop_session()
 
-        self.session = Session()
+        session_id = self.session_manager.start_session()
+        self.session = Session(session_id=session_id)
         self.session.state = SessionState.LISTENING
 
         # Configure languages based on role
@@ -72,6 +92,9 @@ class TranslationPipeline:
         # Start Recorder
         self.recorder.start()
 
+        # Start VAD Worker
+        self.vad_task = asyncio.create_task(self._vad_worker())
+
         # Start Workers
         self.tasks = [
             asyncio.create_task(self._stt_worker()),
@@ -89,9 +112,18 @@ class TranslationPipeline:
 
         logger.info(f"Stopping session {self.session.session_id}")
         self.session.cancel_event.set()
+        self.session_manager.cancel_session(self.session.session_id)
+
+        # Stop Player immediately to clear hardware buffer
+        await asyncio.to_thread(self.player.stop)
 
         # Stop Recorder
         _ = self.recorder.stop()
+
+        # Cancel VAD task
+        if self.vad_task:
+            _ = self.vad_task.cancel()
+            self.vad_task = None
 
         # Cancel tasks
         for task in self.tasks:
@@ -127,13 +159,26 @@ class TranslationPipeline:
         logger.info("Input complete (PTT Released). Processing...")
         self.session.state = SessionState.PROCESSING
 
+        # Stop VAD worker first to avoid race on buffer extraction
+        if self.vad_task:
+            _ = self.vad_task.cancel()
+            try:
+                await self.vad_task
+            except asyncio.CancelledError:
+                pass
+            self.vad_task = None
+
         # Stop Recorder and get audio
         # Note: recorder.stop() returns the buffer
         audio_data = self.recorder.stop()
 
         if len(audio_data) > 0:
             # Create payload
-            payload: AudioPayload = {"audio": audio_data, "sample_rate": self.recorder.sample_rate}
+            payload: AudioPayload = {
+                "audio": audio_data,
+                "sample_rate": self.recorder.sample_rate,
+                "session_id": self.session.session_id,
+            }
             await self.stt_queue.put(payload)
         else:
             logger.warning("No audio recorded.")
@@ -156,6 +201,56 @@ class TranslationPipeline:
         self.tasks = []
         self.session = None  # Session over
 
+    async def _vad_worker(self) -> None:
+        """
+        Continuously monitor audio stream for speech/silence.
+        Harvests audio segments when silence threshold is reached.
+        """
+        if not self.session:
+            return
+
+        logger.debug("VAD Worker started")
+        self.silence_detector.reset()
+
+        try:
+            while not self.session.cancel_event.is_set():
+                # Get chunk from recorder (non-blocking if possible, but get_chunk is async)
+                try:
+                    # Timeout to check cancel event periodically if no audio
+                    chunk = await asyncio.wait_for(self.recorder.get_chunk(), timeout=0.1)
+                except asyncio.TimeoutError:
+                    continue
+
+                if self.session.state != SessionState.LISTENING:
+                    continue
+
+                # Run VAD
+                # chunk is float32
+                is_speech = self.vad_service.is_speech(chunk)
+
+                # Check silence
+                if self.silence_detector.is_silent_timeout(is_speech, len(chunk)):
+                    logger.info("VAD: Silence threshold reached. Harvesting segment.")
+
+                    # Extract whatever is in the recorder buffer
+                    # This clears the buffer, so we get the "sentence" so far.
+                    audio_data = self.recorder.extract_buffer()
+
+                    if len(audio_data) > 0:
+                        payload: AudioPayload = {
+                            "audio": audio_data,
+                            "sample_rate": self.recorder.sample_rate,
+                            "session_id": self.session.session_id,
+                        }
+                        await self.stt_queue.put(payload)
+                        logger.debug(f"Pushed {len(audio_data)} samples to STT queue")
+
+                    # Reset silence detector
+                    self.silence_detector.reset()
+
+        except asyncio.CancelledError:
+            logger.debug("VAD Worker cancelled")
+
     async def _stt_worker(self) -> None:
         """Consume audio, transcribe, push text."""
         if not self.session:
@@ -176,11 +271,16 @@ class TranslationPipeline:
                     self.session.state = SessionState.PROCESSING
 
                 try:
-                    text = await self.stt.transcribe(payload["audio"])
+                    session_id = payload["session_id"]
+                    text = await self.stt.transcribe(payload["audio"], session_id=session_id)
                     if text:
                         logger.debug(f"Transcribed: {text}")
                         await self.llm_queue.put(
-                            {"text": text, "language": self.session.source_lang}
+                            {
+                                "text": text,
+                                "language": self.session.source_lang,
+                                "session_id": session_id,
+                            }
                         )
                 except Exception as e:
                     logger.error(f"STT Error: {e}")
@@ -205,9 +305,10 @@ class TranslationPipeline:
                 try:
                     source_lang = self.session.source_lang
                     target_lang = self.session.target_lang
+                    session_id = payload["session_id"]
 
                     translated_text = await self.llm.translate(
-                        payload["text"], source_lang, target_lang
+                        payload["text"], source_lang, target_lang, session_id=session_id
                     )
 
                     if translated_text:
@@ -217,6 +318,7 @@ class TranslationPipeline:
                                 "text": translated_text,
                                 "source_lang": source_lang,
                                 "target_lang": target_lang,
+                                "session_id": session_id,
                             }
                         )
                 except Exception as e:
@@ -242,7 +344,10 @@ class TranslationPipeline:
                 try:
                     # Stream audio chunks
                     model_path = self.session.tts_model_path
-                    async for chunk in self.tts.synthesize(payload["text"], model_path=model_path):
+                    session_id = payload["session_id"]
+                    async for chunk in self.tts.synthesize(
+                        payload["text"], model_path=model_path, session_id=session_id
+                    ):
                         if self.session.cancel_event.is_set():
                             break
                         await self.player_queue.put(chunk)

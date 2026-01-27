@@ -3,9 +3,12 @@ import logging
 import numpy as np
 from pathlib import Path
 from collections.abc import AsyncGenerator, Iterator
-from typing import Protocol, cast
+from typing import Protocol, cast, TYPE_CHECKING
 
 from app.core.config import TTSSettings
+
+if TYPE_CHECKING:
+    from app.orchestrator.session import SessionManager
 
 try:
     from piper.voice import PiperVoice
@@ -47,11 +50,17 @@ class TTSService:
     # resample_needed will be set in __init__
     # resample_step will be set in __init__
 
-    def __init__(self, settings: TTSSettings, extra_models: list[str] | None = None):
+    def __init__(
+        self,
+        settings: TTSSettings,
+        extra_models: list[str] | None = None,
+        session_manager: "SessionManager | None" = None,
+    ):
         if PiperVoice is None or SynthesisConfig is None:
             raise ImportError("piper-tts is not installed")
 
         self.settings: TTSSettings = settings
+        self.session_manager: "SessionManager | None" = session_manager
         self.voices = {}
 
         # Collect all models to load
@@ -65,10 +74,11 @@ class TTSService:
             self._load_voice(model_path_str)
 
         # Set default voice (first one or from settings)
+        self.default_voice: PiperVoiceProto
         if settings.model_path in self.voices:
-            self.default_voice: PiperVoiceProto = self.voices[settings.model_path]
+            self.default_voice = self.voices[settings.model_path]
         elif self.voices:
-            self.default_voice: PiperVoiceProto = next(iter(self.voices.values()))
+            self.default_voice = next(iter(self.voices.values()))
         else:
             raise ValueError("No TTS models loaded")
 
@@ -105,7 +115,11 @@ class TTSService:
             logger.error(f"Failed to load TTS model {model_path_str}: {e}")
 
     async def synthesize(
-        self, text: str, speaker_id: int | None = None, model_path: str | None = None
+        self,
+        text: str,
+        speaker_id: int | None = None,
+        model_path: str | None = None,
+        session_id: str | None = None,
     ) -> AsyncGenerator[bytes, None]:
         """
         Synthesize text and yield float32 audio bytes at 16kHz.
@@ -114,7 +128,11 @@ class TTSService:
             text: Text to synthesize
             speaker_id: Optional speaker ID for multi-speaker models.
             model_path: specific model to use.
+            session_id: Optional session ID for cancellation checks.
         """
+        if session_id and self.session_manager and not self.session_manager.is_valid(session_id):
+            return
+
         queue: asyncio.Queue[bytes | None] = asyncio.Queue()
         loop = asyncio.get_running_loop()
 
@@ -142,10 +160,25 @@ class TTSService:
             try:
                 # We know SynthesisConfig is not None here because of __init__ check
                 if SynthesisConfig is not None:
+                    if (
+                        session_id
+                        and self.session_manager
+                        and not self.session_manager.is_valid(session_id)
+                    ):
+                        _ = loop.call_soon_threadsafe(queue.put_nowait, None)
+                        return
+
                     syn_config = SynthesisConfig(speaker_id=sid)
                     stream = voice.synthesize(text, syn_config=syn_config)
 
                     for chunk in stream:
+                        if (
+                            session_id
+                            and self.session_manager
+                            and not self.session_manager.is_valid(session_id)
+                        ):
+                            break
+
                         # PROCESS CHUNK IN THREAD (CPU Bound)
 
                         chunk_bytes = chunk.audio_int16_bytes
@@ -188,7 +221,7 @@ class TTSService:
                                 output_bytes = output.astype(np.float32).tobytes()
 
                                 next_input_index = float(
-                                    (out_indices[-1] + resample_step) - float(n_in)
+                                    (cast(float, out_indices[-1]) + resample_step) - float(n_in)
                                 )
                             else:
                                 next_input_index -= float(n_in)

@@ -56,8 +56,13 @@ async def test_full_pipeline(
     dummy_audio = np.zeros(8000, dtype=np.int16)
     dummy_bytes = dummy_audio.tobytes()
 
-    # Mock synthesize_stream_raw to return iterator of bytes
-    _ = setattr(mock_voice, "synthesize_stream_raw", MagicMock(return_value=iter([dummy_bytes])))
+    # Mock Chunk object with audio_int16_bytes
+    mock_chunk = MagicMock()
+    mock_chunk.audio_int16_bytes = dummy_bytes
+
+    # Mock synthesize to return iterator of Chunks
+    _ = setattr(mock_voice, "synthesize", MagicMock(return_value=iter([mock_chunk])))
+
     # Also mock config.sample_rate
     mock_config = MagicMock()
     mock_config.sample_rate = 16000

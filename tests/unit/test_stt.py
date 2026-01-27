@@ -128,3 +128,21 @@ async def test_stt_settings_validation() -> None:
     # Invalid compute_type
     with pytest.raises(ValidationError):
         STTSettings(model_path="tiny", compute_type="invalid_type")
+
+
+@pytest.mark.asyncio
+@patch("app.services.stt.WhisperModel")
+async def test_stt_transcribe_cancelled(mock_whisper: MagicMock, stt_settings: STTSettings) -> None:
+    """Test that STTService aborts transcription if session is invalid."""
+    mock_session_manager = MagicMock()
+    mock_session_manager.is_valid.return_value = False
+
+    stt_service = STTService(stt_settings, session_manager=mock_session_manager)
+    audio_data = np.zeros(16000, dtype=np.float32)
+
+    result = await stt_service.transcribe(audio_data, session_id="cancelled-session")
+    assert result is None
+
+    # Verify model was NOT called (or called but aborted?)
+    # If check is before compute, model shouldn't be called.
+    mock_whisper.return_value.transcribe.assert_not_called()

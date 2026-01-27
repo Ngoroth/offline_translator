@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, ANY
 from app.orchestrator.pipeline import TranslationPipeline
 from app.core.config import AppSettings
 from app.orchestrator.session import SessionState
@@ -10,10 +10,24 @@ from app.orchestrator.session import SessionState
 def mock_services() -> dict[str, MagicMock | AsyncMock]:
     mock_settings = MagicMock(spec=AppSettings)
     mock_settings.speakers = {}
+    mock_settings.vad = MagicMock()
+    mock_settings.vad.aggressiveness = 3
+    mock_settings.vad.threshold_ms = 500
+    mock_settings.audio = MagicMock()
+    mock_settings.audio.sample_rate = 16000
+
+    # TTS Mock that returns an async iterator (empty by default)
+    async def empty_async_iter(*args: object, **kwargs: object):
+        if False:
+            yield b""
+
+    tts_mock = MagicMock()
+    tts_mock.synthesize.side_effect = empty_async_iter
+
     return {
         "stt": AsyncMock(),
         "llm": AsyncMock(),
-        "tts": AsyncMock(),
+        "tts": tts_mock,
         "recorder": MagicMock(),
         "player": MagicMock(),
         "settings": mock_settings,
@@ -98,13 +112,13 @@ def mock_services_with_data(
     mock_services["stt"].transcribe.return_value = "Hello"
     mock_services["llm"].translate.return_value = "Hola"
 
-    # TTS returns async iterator
-    async def async_iter(_text: str):
+    # TTS returns async iterator with data
+    async def async_iter(_text: str, **kwargs: object):
         # 4 bytes = 1 float32 sample
         yield b"\x00\x00\x00\x00" * 10
 
-    # We must use MagicMock for synthesize because it returns an async generator, NOT a coroutine
-    mock_services["tts"].synthesize = MagicMock(side_effect=async_iter)
+    # Update the side_effect
+    mock_services["tts"].synthesize.side_effect = async_iter
 
     # Recorder stop returns numpy array
     mock_services["recorder"].stop.return_value = np.zeros(1600, dtype=np.float32)
@@ -125,7 +139,9 @@ async def test_pipeline_flow(
     await pipeline.wait_for_completion()
 
     mock_services_with_data["stt"].transcribe.assert_called()
-    mock_services_with_data["llm"].translate.assert_called_with("Hello", "English", "Russian")
+    mock_services_with_data["llm"].translate.assert_called_with(
+        "Hello", "English", "Russian", session_id=ANY
+    )
 
     # Check that synthesize was called.
     # Since we use extra_models/default voice, args might vary slightly if we didn't mock tts_model_path in session.
@@ -134,3 +150,31 @@ async def test_pipeline_flow(
     mock_services_with_data["tts"].synthesize.assert_called()
 
     mock_services_with_data["player"].play.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_pipeline_session_management(
+    pipeline: TranslationPipeline, mock_services: dict[str, MagicMock | AsyncMock]
+) -> None:
+    """Test session lifecycle and cancellation."""
+    # Ensure session manager exists
+    assert pipeline.session_manager is not None
+
+    # Start session 1
+    session1 = await pipeline.start_session()
+    sid1 = session1.session_id
+    assert pipeline.session_manager.is_valid(sid1)
+
+    # Start session 2 (simulated restart/barge-in or just next turn)
+    session2 = await pipeline.start_session()
+    sid2 = session2.session_id
+    assert sid1 != sid2
+
+    # Session 1 should be cancelled
+    assert not pipeline.session_manager.is_valid(sid1)
+    # Session 2 should be valid
+    assert pipeline.session_manager.is_valid(sid2)
+
+    # Stop session 2
+    await pipeline.stop_session()
+    assert not pipeline.session_manager.is_valid(sid2)

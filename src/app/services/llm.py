@@ -1,10 +1,13 @@
 import asyncio
-from typing import cast, final
+from typing import cast, final, TYPE_CHECKING
 
 from llama_cpp import Llama, CreateChatCompletionResponse, ChatCompletionRequestMessage
 from loguru import logger
 
 from app.core.config import LLMSettings
+
+if TYPE_CHECKING:
+    from app.orchestrator.session import SessionManager
 
 
 class LLMError(Exception):
@@ -21,9 +24,13 @@ class LLMModelLoadError(LLMError):
 
 @final
 class LLMService:
-    def __init__(self, settings: LLMSettings) -> None:
+    def __init__(
+        self, settings: LLMSettings, session_manager: "SessionManager | None" = None
+    ) -> None:
         self.settings = settings
+        self.session_manager = session_manager
         self._model: Llama | None = None
+        self._lock: asyncio.Lock = asyncio.Lock()
         self._init_model()
 
     def _init_model(self) -> None:
@@ -40,7 +47,13 @@ class LLMService:
             logger.error(f"Failed to load LLM model: {e}")
             raise LLMModelLoadError(f"Failed to load model from {self.settings.model_path}") from e
 
-    async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
+    async def translate(
+        self, text: str, source_lang: str, target_lang: str, session_id: str | None = None
+    ) -> str | None:
+        if session_id and self.session_manager and not self.session_manager.is_valid(session_id):
+            logger.debug(f"LLM: Pre-check cancelled for session {session_id}")
+            return None
+
         if not self._model:
             raise LLMError("Model not initialized")
 
@@ -56,11 +69,29 @@ class LLMService:
 
         try:
             # Offload blocking inference to a thread
-            response = await asyncio.to_thread(
-                self._model.create_chat_completion,
-                messages=messages,
-                temperature=0.1,
-            )
+            # Lock to prevent concurrent access to the model
+            async with self._lock:
+                if (
+                    session_id
+                    and self.session_manager
+                    and not self.session_manager.is_valid(session_id)
+                ):
+                    logger.debug(f"LLM: Locked pre-check cancelled for session {session_id}")
+                    return None
+
+                response = await asyncio.to_thread(
+                    self._model.create_chat_completion,
+                    messages=messages,
+                    temperature=0.1,
+                )
+
+            if (
+                session_id
+                and self.session_manager
+                and not self.session_manager.is_valid(session_id)
+            ):
+                logger.debug(f"LLM: Post-check cancelled for session {session_id}")
+                return None
 
             # Cast to expected response type since stream=False
             resp_typed = cast(CreateChatCompletionResponse, response)

@@ -49,6 +49,11 @@ class TTSSettings(BaseModel):
         return v
 
 
+class VADSettings(BaseModel):
+    threshold_ms: int = Field(default=500, gt=0)
+    aggressiveness: int = Field(default=3, ge=0, le=3)
+
+
 class InputSettings(BaseModel):
     ptt_a: str = "space"
     ptt_b: str = "alt"
@@ -77,6 +82,7 @@ class AppSettings(BaseSettings):
     stt: STTSettings
     llm: LLMSettings
     tts: TTSSettings
+    vad: VADSettings = VADSettings()
     input: InputSettings = InputSettings()
     speakers: dict[str, SpeakerSettings] = {}
 
@@ -97,7 +103,7 @@ def load_settings(config_path: str | Path = "config.yaml") -> AppSettings:
 
     with open(path, "r", encoding="utf-8") as f:
         try:
-            data = cast(dict[str, object], yaml.safe_load(f))
+            data = cast(object, yaml.safe_load(f))
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse config YAML: {e}") from e
 

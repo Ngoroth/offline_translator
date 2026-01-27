@@ -78,3 +78,17 @@ async def test_translate_failure(mock_settings: LLMSettings, mock_llama: MagicMo
 
     with pytest.raises(LLMError):
         await service.translate("Hello", "en", "es")
+
+
+@pytest.mark.asyncio
+async def test_translate_cancelled(mock_settings: LLMSettings, mock_llama: MagicMock) -> None:
+    mock_session_manager = MagicMock()
+    mock_session_manager.is_valid.return_value = False
+
+    service = LLMService(mock_settings, session_manager=mock_session_manager)
+
+    result = await service.translate("Hello", "en", "es", session_id="abc")
+    assert result is None
+
+    # Verify inference not called
+    mock_llama.return_value.create_chat_completion.assert_not_called()

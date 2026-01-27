@@ -27,6 +27,10 @@ profiles:
     tts:
       model_path: "models/tts/en_US-libritts_r-medium.onnx"
     
+    vad:
+      threshold_ms: 500
+      aggressiveness: 3
+
     input:
       ptt_a: "space"
       ptt_b: "alt"
@@ -66,6 +70,10 @@ profiles:
     tts:
       model_path: "models/tts/en_US-libritts_r-medium.onnx"
       
+    vad:
+      threshold_ms: 500
+      aggressiveness: 3
+
     input:
       ptt_a: "space"
       ptt_b: "alt"

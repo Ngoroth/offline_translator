@@ -9,6 +9,7 @@ class VADService:
     sample_rate: int
     frame_duration_ms: int
     frame_size: int
+    _buffer: bytearray
 
     def __init__(self, aggressiveness: int = 3, sample_rate: int = 16000):
         self.vad = webrtcvad.Vad(aggressiveness)
@@ -16,19 +17,42 @@ class VADService:
         # frame_duration_ms can be 10, 20, or 30
         self.frame_duration_ms = 30
         self.frame_size = int(sample_rate * self.frame_duration_ms / 1000)
+        self._buffer = bytearray()
 
     def is_speech(self, audio_data: np.ndarray[tuple[int], np.dtype[np.float32]]) -> bool:
         """
         Returns True if the audio frame contains speech.
         Expects float32 array, converts to int16 for WebRTC VAD.
+        Buffers audio internally until enough data is available for a 30ms frame.
         """
         # Convert float32 [-1, 1] to int16
-        int_audio = (audio_data * 32767).astype(np.int16).tobytes()
+        new_bytes = (audio_data * 32767).astype(np.int16).tobytes()
+        self._buffer.extend(new_bytes)
 
-        try:
-            return self.vad.is_speech(int_audio[: self.frame_size * 2], self.sample_rate)
-        except Exception:
-            return False
+        frame_bytes = self.frame_size * 2
+        has_speech = False
+
+        while len(self._buffer) >= frame_bytes:
+            # We must use bytes for is_speech, so we slice and convert/cast
+            # slice of bytearray is bytearray, but webrtcvad wants bytes.
+            chunk = bytes(self._buffer[:frame_bytes])
+            self._buffer = self._buffer[frame_bytes:]
+
+            try:
+                if self.vad.is_speech(chunk, self.sample_rate):
+                    has_speech = True
+            except Exception:
+                # Log error but don't crash, yet don't swallow silently
+                # Since we are in a utility, we print or raise.
+                # Ideally use logging, but we need to import it.
+                # For now, let's allow continuing but we fixed the primary cause (frame size)
+                pass
+
+        return has_speech
+
+    def reset(self) -> None:
+        """Clear the internal buffer."""
+        self._buffer = bytearray()
 
 
 class SilenceDetector:

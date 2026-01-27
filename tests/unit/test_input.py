@@ -11,6 +11,7 @@ async def test_keyboard_input_async_press() -> None:
 
         # Initialize
         input_handler = KeyboardInput(key_map={"a": "space"})
+        input_handler.start()
 
         # Verify listener started
         mock_listener_cls.assert_called_once()

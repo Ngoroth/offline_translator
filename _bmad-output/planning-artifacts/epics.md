@@ -254,6 +254,21 @@ So that I can have a bidirectional conversation without manual configuration cha
 **Then** The pipeline should use the Ru->En language pair
 **And** The LLM system prompt should adjust to the correct source language context
 
+### Story 2.5: Integration & Smoke Test Hardening
+
+As a Developer,
+I want to implement comprehensive integration and smoke tests,
+So that I can detect system-level pipeline failures (like missing initialization or API mismatches) that unit tests fail to catch.
+
+**Acceptance Criteria:**
+
+**Given** A full system startup sequence
+**When** I run the new smoke test suite
+**Then** It should verify the real initialization of all services (Input, STT, LLM, TTS) together
+**And** It should simulate a complete "press-speak-release" cycle using mock inputs but real service wiring
+**And** It should catch issues like "Input Service not started" or "TTS API signature mismatch"
+**And** These tests should run automatically in the CI pipeline
+
 ## Epic 3: Configuration & Field Deployment (The "Product" Polish)
 
 Finalize the system for field use by implementing robust configuration management, validation, logging, and deployment profiles for Raspberry Pi.

@@ -7,6 +7,7 @@ class AudioPayload(TypedDict):
 
     audio: np.ndarray
     sample_rate: int
+    session_id: str
 
 
 class TextPayload(TypedDict):
@@ -14,6 +15,7 @@ class TextPayload(TypedDict):
 
     text: str
     language: str | None  # Language detected or specified
+    session_id: str
 
 
 class TranslationPayload(TypedDict):
@@ -22,3 +24,4 @@ class TranslationPayload(TypedDict):
     text: str
     source_lang: str
     target_lang: str
+    session_id: str

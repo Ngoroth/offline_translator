@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 from app.services.tts import TTSService
 from app.core.config import TTSSettings
 
@@ -48,14 +48,22 @@ async def test_synthesize_conversion_int16_to_float32(
 
     # Piper yields int16 bytes
     fake_int16_data = np.array([0, 32767, -32768, 0], dtype=np.int16).tobytes()
-    mock_instance.synthesize_stream_raw.return_value = iter([fake_int16_data])
+
+    # Mock Chunk object
+    mock_chunk = MagicMock()
+    mock_chunk.audio_int16_bytes = fake_int16_data
+
+    # synthesize returns iterator of Chunks
+    mock_instance.synthesize.return_value = iter([mock_chunk])
 
     chunks = []
     async for chunk in service.synthesize("test text", speaker_id=5):
         chunks.append(chunk)
 
     # Verify speaker_id was passed
-    mock_instance.synthesize_stream_raw.assert_called_with("test text", speaker_id=5)
+    mock_instance.synthesize.assert_called()
+    args, _ = mock_instance.synthesize.call_args
+    assert args[0] == "test text"
 
     assert len(chunks) == 1
     float_data = np.frombuffer(chunks[0], dtype=np.float32)
@@ -83,7 +91,12 @@ async def test_synthesize_resampling(
     chunk1 = sine_wave[:11025].tobytes()
     chunk2 = sine_wave[11025:].tobytes()
 
-    mock_instance.synthesize_stream_raw.return_value = iter([chunk1, chunk2])
+    mock_chunk1 = MagicMock()
+    mock_chunk1.audio_int16_bytes = chunk1
+    mock_chunk2 = MagicMock()
+    mock_chunk2.audio_int16_bytes = chunk2
+
+    mock_instance.synthesize.return_value = iter([mock_chunk1, mock_chunk2])
 
     full_output = b""
     async for chunk in service.synthesize("test"):
@@ -95,3 +108,22 @@ async def test_synthesize_resampling(
     # With resampling, we expect roughly 16000 samples (+/- small error due to buffering/chunking)
     assert 15900 < len(output_floats) < 16100
     assert np.max(np.abs(output_floats)) > 0.5
+
+
+@pytest.mark.asyncio
+async def test_synthesize_cancelled(
+    mock_piper_setup: tuple[MagicMock, MagicMock], tts_settings: TTSSettings
+) -> None:
+    _, mock_instance = mock_piper_setup
+    mock_session_manager = MagicMock()
+    mock_session_manager.is_valid.return_value = False
+
+    with patch("pathlib.Path.is_file", return_value=True):
+        service = TTSService(tts_settings, session_manager=mock_session_manager)
+
+    chunks = []
+    async for chunk in service.synthesize("test", session_id="abc"):
+        chunks.append(chunk)
+
+    assert len(chunks) == 0
+    mock_instance.synthesize.assert_not_called()
