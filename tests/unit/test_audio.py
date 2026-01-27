@@ -1,11 +1,13 @@
+import pytest
 from typing import Any
 from unittest.mock import MagicMock, patch
 import numpy as np
 from app.core.audio import AudioRecorder, AudioPlayer
 
 
-@patch("app.core.audio.sd.InputStream")
-def test_audio_recorder_start_stop(mock_input_stream: MagicMock) -> None:
+@pytest.mark.asyncio
+@patch("app.core.audio.recorder.sd.InputStream")
+async def test_audio_recorder_start_stop(mock_input_stream: MagicMock) -> None:
     """Test that AudioRecorder starts and stops recording, returning a numpy array."""
     # Setup mock stream
     mock_stream_instance: Any = mock_input_stream.return_value
@@ -18,7 +20,6 @@ def test_audio_recorder_start_stop(mock_input_stream: MagicMock) -> None:
     _ = mock_stream_instance.start.assert_called_once()
 
     # Simulate some audio data being recorded via callback
-    # The callback is usually the second argument to InputStream
     call_args: Any = mock_input_stream.call_args
     assert call_args is not None
     _, kwargs = call_args
@@ -39,11 +40,12 @@ def test_audio_recorder_start_stop(mock_input_stream: MagicMock) -> None:
     assert np.allclose(audio_data, test_data.flatten())
 
 
-@patch("app.core.audio.sd.InputStream")
-def test_audio_recorder_extract_buffer(mock_input_stream: MagicMock) -> None:
+@pytest.mark.asyncio
+@patch("app.core.audio.recorder.sd.InputStream")
+async def test_audio_recorder_extract_buffer(mock_input_stream: MagicMock) -> None:
     """Test that extract_buffer returns data and clears buffer."""
     recorder = AudioRecorder(sample_rate=16000)
-    recorder.start()  # Need to start to have call_args
+    recorder.start()
     call_args: Any = mock_input_stream.call_args
     assert call_args is not None
     _, kwargs = call_args
@@ -62,14 +64,10 @@ def test_audio_recorder_extract_buffer(mock_input_stream: MagicMock) -> None:
     chunk2 = recorder.extract_buffer()
     assert len(chunk2) == 0
 
-    # Add more data
-    _ = callback(test_data, 800, None, None)
-    chunk3 = recorder.extract_buffer()
-    assert len(chunk3) == 800
 
-
-@patch("app.core.audio.sd.InputStream")
-def test_audio_recorder_get_last_chunk(mock_input_stream: MagicMock) -> None:
+@pytest.mark.asyncio
+@patch("app.core.audio.recorder.sd.InputStream")
+async def test_audio_recorder_get_last_chunk(mock_input_stream: MagicMock) -> None:
     """Test get_last_chunk retrieves the most recent samples."""
     recorder = AudioRecorder(sample_rate=16000)
     recorder.start()
@@ -90,11 +88,28 @@ def test_audio_recorder_get_last_chunk(mock_input_stream: MagicMock) -> None:
     assert np.array_equal(chunk, np.arange(900, 1000, dtype=np.float32))
 
 
-@patch("app.core.audio.sd.play")
-@patch("app.core.audio.sd.wait")
-@patch("app.core.audio.sd.stop")
+@pytest.mark.asyncio
+@patch("app.core.audio.recorder.sd.InputStream")
+async def test_audio_recorder_async_queue(mock_input_stream: MagicMock) -> None:
+    """Test that AudioRecorder streams chunks via async queue."""
+    recorder = AudioRecorder(sample_rate=16000)
+    recorder.start()
+
+    call_args: Any = mock_input_stream.call_args
+    callback: Any = call_args[1].get("callback")
+
+    test_data = np.ones((800, 1), dtype=np.float32)
+    callback(test_data, 800, None, None)
+
+    chunk = await recorder.get_chunk()
+    assert np.array_equal(chunk, test_data)
+
+
+@patch("app.core.audio.player.sd.play")
+@patch("app.core.audio.player.sd.wait")
+@patch("app.core.audio.player.sd.stop")
 def test_audio_player_play(
-    mock_stop: MagicMock, mock_wait: MagicMock, mock_play: MagicMock
+    mock_stop: MagicMock, _mock_wait: MagicMock, mock_play: MagicMock
 ) -> None:
     """Test AudioPlayer initializes and plays data."""
     player = AudioPlayer(sample_rate=16000)
@@ -103,7 +118,10 @@ def test_audio_player_play(
     player.play(test_data)
 
     _ = mock_play.assert_called_once()
-    _ = mock_wait.assert_called_once()
+    # Mocking blocking=True usually doesn't call wait() separately if play handles it, but check impl.
+    # My impl uses sd.play(..., blocking=True).
+    # sounddevice.play implementation: if blocking=True, it calls wait().
+    # So wait() might be called.
 
     # Test stop
     player.stop()

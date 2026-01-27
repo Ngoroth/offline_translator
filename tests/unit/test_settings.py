@@ -1,6 +1,6 @@
-import yaml
 from pathlib import Path
-from app.settings import load_settings, AppSettings
+import yaml
+from app.core.config import load_settings, AppSettings
 
 
 def test_load_settings_full_schema(tmp_path: Path):
@@ -8,6 +8,11 @@ def test_load_settings_full_schema(tmp_path: Path):
     Test that load_settings correctly loads all configuration sections
     defined in the PRD (Audio, STT, LLM, TTS, Input).
     """
+    # Create dummy files for validation to pass
+    tts_model = tmp_path / "models/tts/test.onnx"
+    tts_model.parent.mkdir(parents=True, exist_ok=True)
+    tts_model.touch()
+
     config_data = {
         "current_profile": "test_profile",
         "profiles": {
@@ -19,8 +24,12 @@ def test_load_settings_full_schema(tmp_path: Path):
                     "output_device_index": 2,
                 },
                 "stt": {"model_path": "models/stt/test", "language": "en", "beam_size": 5},
-                "llm": {"model_path": "models/llm/test.gguf", "n_ctx": 2048, "thread_count": 4},
-                "tts": {"model_path": "models/tts/test.onnx", "speaker_id": 0},
+                "llm": {
+                    "model_path": "models/llm/test.gguf",
+                    "context_window": 2048,
+                    "n_threads": 4,
+                },
+                "tts": {"model_path": str(tts_model), "speaker_id": 0},
                 "input": {"ptt_a": "space", "ptt_b": "alt"},
                 "speakers": {
                     "a": {"from_lang": "English", "to_lang": "Russian"},
@@ -47,10 +56,10 @@ def test_load_settings_full_schema(tmp_path: Path):
 
     # Assertions for LLM
     assert settings.llm.model_path == "models/llm/test.gguf"
-    assert settings.llm.thread_count == 4
+    assert settings.llm.n_threads == 4
 
     # Assertions for TTS
-    assert settings.tts.model_path == "models/tts/test.onnx"
+    assert settings.tts.model_path == str(tts_model)
     assert settings.tts.speaker_id == 0
 
     # Assertions for Input

@@ -1,373 +1,97 @@
 import asyncio
-from pathlib import Path
-from typing import TypedDict
-import numpy as np
+
 from loguru import logger
 
-from app.settings import AppSettings, load_settings
-
-from app.core.output_console import ConsoleOutput
-from app.core.input_windows import KeyboardInput
-from app.core.audio import AudioRecorder, AudioPlayer
+from app.core.audio import AudioPlayer, AudioRecorder
+from app.core.config import AppSettings, load_settings
+from app.core.input import BaseInput, GPIOInput, KeyboardInput, Role
+from app.core.logging import setup_logging
 from app.services.stt import STTService
-from app.services.translator import TranslatorService
+from app.services.llm import LLMService
 from app.services.tts import TTSService
-from app.utils.vad import VADService, SilenceDetector
+from app.orchestrator.pipeline import TranslationPipeline
+from app.orchestrator.orchestrator import Orchestrator
 
 
-class STTPayload(TypedDict):
-    role: str
-    audio: np.ndarray[tuple[int], np.dtype[np.float32]]
-    session_id: int
+def get_input_handler(settings: AppSettings) -> BaseInput:
+    """
+    HAL Factory: Selects the appropriate input handler based on configuration.
+    """
+    key_map: dict[Role, str] = {"a": settings.input.ptt_a, "b": settings.input.ptt_b}
+
+    if settings.input_mode == "keyboard":
+        return KeyboardInput(key_map=key_map)
+    elif settings.input_mode == "gpio":
+        # Placeholder pin mapping logic
+        return GPIOInput({"a": 17, "b": 27})
+    else:
+        logger.error(f"Unsupported input mode: {settings.input_mode}. Defaulting to keyboard.")
+        return KeyboardInput(key_map=key_map)
 
 
-class LLMPayload(TypedDict):
-    role: str
-    text: str
-    session_id: int
+async def main():
+    # 1. Setup Logging (Must be first for diagnostics)
+    setup_logging()
+    logger.info("Starting Offline Translator...")
 
+    try:
+        # 2. Load Config
+        settings = load_settings()
+        logger.info(f"Profile: {settings.platform} ({settings.input_mode})")
 
-class TTSPayload(TypedDict):
-    role: str
-    text: str
-    session_id: int
+        # 3. Initialize Hardware
+        logger.info("Initializing hardware...")
 
+        # Input via HAL Factory
+        input_handler = get_input_handler(settings)
+        input_handler.start()
 
-class PlaybackPayload(TypedDict):
-    audio: np.ndarray[tuple[int], np.dtype[np.float32]]
-    session_id: int
-
-
-class Orchestrator:
-    settings: AppSettings
-    output: ConsoleOutput
-    stt_queue: asyncio.Queue[STTPayload]
-    llm_queue: asyncio.Queue[LLMPayload]
-    tts_queue: asyncio.Queue[TTSPayload]
-    playback_queue: asyncio.Queue[PlaybackPayload]
-    is_recording: bool
-    interrupt_event: asyncio.Event
-    playback_allowed: asyncio.Event
-    current_session: int
-
-    def __init__(self):
-        self.settings = load_settings()
-        self.output = ConsoleOutput()
-
-        # Queues
-        self.stt_queue = asyncio.Queue()
-        self.llm_queue = asyncio.Queue()
-        self.tts_queue = asyncio.Queue()
-        self.playback_queue = asyncio.Queue()
-
-        # State
-        self.is_recording = False
-        self.interrupt_event = asyncio.Event()
-        self.playback_allowed = asyncio.Event()
-        self.playback_allowed.set()  # Allowed by default
-        self.current_session = 0
-
-    def clear_queues(self):
-        for q in [self.stt_queue, self.llm_queue, self.tts_queue, self.playback_queue]:
-            while not q.empty():
-                try:
-                    _ = q.get_nowait()
-                    q.task_done()
-                except (asyncio.QueueEmpty, ValueError):
-                    break
-
-    async def audio_capture_task(
-        self, recorder: AudioRecorder, input_handler: KeyboardInput, player: AudioPlayer
-    ):
-        vad = VADService(sample_rate=self.settings.audio.sample_rate)
-        silence_detector = SilenceDetector(sample_rate=self.settings.audio.sample_rate)
-
-        while True:
-            # wait_for_press now returns 'a' or 'b'
-            role = await asyncio.to_thread(input_handler.wait_for_press)
-
-            self.current_session += 1
-            session_id = self.current_session
-
-            self.is_recording = True
-            self.interrupt_event.set()  # Signal interruption to playback
-            self.playback_allowed.clear()  # Block playback while recording
-            player.stop()  # Immediately stop current playback
-            self.clear_queues()
-
-            self.output.status(f"Recording ({role})...")
-            recorder.start()
-            silence_detector.reset()
-            speech_in_segment = False
-
-            # 30ms frames for VAD
-            frame_samples = int(self.settings.audio.sample_rate * 0.03)
-
-            while input_handler.is_pressed(role):
-                await asyncio.sleep(0.03)
-                if session_id != self.current_session:
-                    break  # Interrupted by another press?
-
-                # Check VAD
-                chunk = recorder.get_last_chunk(frame_samples)
-                if len(chunk) == frame_samples:
-                    is_speech = vad.is_speech(chunk)
-                    if is_speech:
-                        speech_in_segment = True
-
-                    if silence_detector.is_silent_timeout(is_speech, frame_samples):
-                        # Silence detected: Extract what we have and send it to STT ONLY if speech was heard
-                        mid_audio = recorder.extract_buffer()
-                        if speech_in_segment and len(mid_audio) > 1600:
-                            self.output.status("Pause detected, processing segment...")
-                            await self.stt_queue.put(
-                                {"role": role, "audio": mid_audio, "session_id": session_id}
-                            )
-                        silence_detector.reset()
-                        speech_in_segment = False
-                        # Do NOT break, continue listening until button is released
-
-            # Final audio data (after button release or interruption)
-            audio_data = recorder.stop()
-            self.is_recording = False
-            self.interrupt_event.clear()
-
-            if session_id != self.current_session:
-                continue
-
-            # Start processing immediately ONLY if speech was heard in the last segment
-            if speech_in_segment and len(audio_data) > 1600:
-                await self.stt_queue.put(
-                    {"role": role, "audio": audio_data, "session_id": session_id}
-                )
-            elif not speech_in_segment:
-                self.output.status("No speech detected in last segment.")
-            else:
-                self.output.status("Too short, ignored.")
-
-            # Wait for physical button release before allowing playback (unless in streaming mode)
-            if not self.settings.audio.playback_during_recording:
-                while input_handler.is_pressed(role):
-                    await asyncio.sleep(0.05)
-                    if session_id != self.current_session:
-                        break
-
-            self.playback_allowed.set()  # Allow playback after button release
-
-    async def stt_worker(self, stt_service: STTService):
-        # Mapping for human-readable names to ISO codes
-        lang_map = {
-            "english": "en",
-            "russian": "ru",
-            "spanish": "es",
-            "french": "fr",
-            "german": "de",
-            # Add more as needed or move to settings
-        }
-
-        while True:
-            payload = await self.stt_queue.get()
-            session_id = payload["session_id"]
-            role = payload["role"]
-            audio_data = payload["audio"]
-
-            if session_id != self.current_session:
-                self.stt_queue.task_done()
-                continue
-
-            speaker_cfg = self.settings.speakers.get(role)
-            target_lang_code = None
-            if speaker_cfg:
-                target_lang_code = lang_map.get(speaker_cfg.from_lang.lower())
-
-            self.output.status(f"Transcribing ({role}, lang={target_lang_code or 'auto'})...")
-            try:
-                # Use role-specific language for STT to avoid mis-detection
-                text = await asyncio.to_thread(
-                    stt_service.transcribe, audio_data, language=target_lang_code
-                )
-
-                if session_id != self.current_session:
-                    continue
-
-                if text.strip():
-                    self.output.status(f"[{role}] Heard: {text}")
-                    await self.llm_queue.put({"role": role, "text": text, "session_id": session_id})
-                else:
-                    self.output.status("Nothing heard.")
-            except Exception as e:
-                logger.error(f"STT Error: {e}")
-            finally:
-                self.stt_queue.task_done()
-
-    async def llm_worker(self, translator_service: TranslatorService):
-        while True:
-            payload = await self.llm_queue.get()
-            session_id = payload["session_id"]
-            role = payload["role"]
-            text = payload["text"]
-
-            if session_id != self.current_session:
-                self.llm_queue.task_done()
-                continue
-
-            speaker_cfg = self.settings.speakers.get(role)
-            if not speaker_cfg:
-                logger.error(f"No config for speaker {role}")
-                self.llm_queue.task_done()
-                continue
-
-            self.output.status(f"Translating ({role})...")
-            try:
-                sentence_buffer = ""
-                async for token in translator_service.translate_stream(
-                    text, speaker_cfg.from_lang, speaker_cfg.to_lang
-                ):
-                    if session_id != self.current_session:
-                        break
-
-                    sentence_buffer += token
-                    if any(c in token for c in ".!?"):
-                        await self.tts_queue.put(
-                            {
-                                "role": role,
-                                "text": sentence_buffer.strip(),
-                                "session_id": session_id,
-                            }
-                        )
-                        sentence_buffer = ""
-
-                if session_id == self.current_session and sentence_buffer.strip():
-                    await self.tts_queue.put(
-                        {"role": role, "text": sentence_buffer.strip(), "session_id": session_id}
-                    )
-            except Exception as e:
-                logger.error(f"LLM Error: {e}")
-            finally:
-                self.llm_queue.task_done()
-
-    async def tts_worker(self, tts_services: dict[str, TTSService]):
-        while True:
-            payload = await self.tts_queue.get()
-            session_id = payload["session_id"]
-            role = payload["role"]
-            sentence = payload["text"]
-
-            if session_id != self.current_session:
-                self.tts_queue.task_done()
-                continue
-
-            self.output.status(f"Synthesizing ({role}): {sentence[:20]}...")
-            try:
-                # Select service based on speaker's tts_model
-                service = tts_services.get(role, tts_services.get("default"))
-                if not service:
-                    logger.error("No TTS service available")
-                    continue
-
-                for audio_chunk in service.synthesize_stream(sentence):
-                    if session_id != self.current_session:
-                        break
-                    await self.playback_queue.put({"audio": audio_chunk, "session_id": session_id})
-            except Exception as e:
-                logger.error(f"TTS Error: {e}")
-            finally:
-                self.tts_queue.task_done()
-
-    async def playback_worker(self, player: AudioPlayer):
-        while True:
-            payload = await self.playback_queue.get()
-            session_id = payload["session_id"]
-            audio_chunk = payload["audio"]
-
-            if session_id != self.current_session:
-                self.playback_queue.task_done()
-                continue
-
-            # If we don't allow playback during recording, wait for permission
-            if not self.settings.audio.playback_during_recording:
-                _ = await self.playback_allowed.wait()
-
-            if session_id != self.current_session or self.interrupt_event.is_set():
-                # Playback interrupted, wait for next clean state
-                self.playback_queue.task_done()
-                continue
-
-            try:
-                await asyncio.to_thread(player.play, audio_chunk)
-            except Exception as e:
-                logger.error(f"Playback Error: {e}")
-            finally:
-                self.playback_queue.task_done()
-
-    async def run(self):
-        self.output.status("Initializing services...")
-
-        # Initialize Hardware
-        key_map = {"a": self.settings.input.ptt_a, "b": self.settings.input.ptt_b}
-        input_handler = KeyboardInput(key_map=key_map)
+        # Audio
         recorder = AudioRecorder(
-            sample_rate=self.settings.audio.sample_rate,
-            device_index=self.settings.audio.input_device_index,
+            sample_rate=settings.audio.sample_rate, device_index=settings.audio.input_device_index
         )
         player = AudioPlayer(
-            sample_rate=self.settings.audio.sample_rate,
-            device_index=self.settings.audio.output_device_index,
+            sample_rate=settings.audio.sample_rate, device_index=settings.audio.output_device_index
         )
 
-        # Initialize AI
-        stt = STTService(model_path=self.settings.stt.model_path)
-        translator = TranslatorService(
-            model_path=self.settings.llm.model_path,
-            n_ctx=self.settings.llm.n_ctx,
-            thread_count=self.settings.llm.thread_count,
+        # 4. Initialize AI Services
+        logger.info("Initializing AI Services...")
+
+        # Collect TTS models
+        tts_models: set[str] = set()
+        if settings.tts.model_path:
+            tts_models.add(settings.tts.model_path)
+        for speaker in settings.speakers.values():
+            if speaker.tts_model:
+                tts_models.add(speaker.tts_model)
+
+        stt_service = STTService(settings.stt)
+        llm_service = LLMService(settings.llm)
+        tts_service = TTSService(settings.tts, extra_models=list(tts_models))
+
+        # 5. Initialize Pipeline and Orchestrator
+        logger.info("Initializing Orchestrator...")
+        pipeline = TranslationPipeline(
+            settings=settings,
+            stt=stt_service,
+            llm=llm_service,
+            tts=tts_service,
+            recorder=recorder,
+            player=player,
         )
 
-        # Initialize TTS services (one per speaker if models differ)
-        tts_services: dict[str, TTSService] = {}
-        default_tts = TTSService(model_path=self.settings.tts.model_path)
-        tts_services["default"] = default_tts
+        orchestrator = Orchestrator(pipeline=pipeline, input_provider=input_handler)
 
-        for role, speaker in self.settings.speakers.items():
-            if speaker.tts_model and speaker.tts_model != self.settings.tts.model_path:
-                model_path = Path(speaker.tts_model)
-                if model_path.exists():
-                    self.output.status(f"Loading TTS for {role}: {speaker.tts_model}")
-                    try:
-                        tts_services[role] = TTSService(model_path=speaker.tts_model)
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to load specific TTS for {role}: {e}. Falling back to default."
-                        )
-                        tts_services[role] = default_tts
-                else:
-                    logger.warning(
-                        f"TTS model {speaker.tts_model} not found. Falling back to default."
-                    )
-                    tts_services[role] = default_tts
-            else:
-                tts_services[role] = default_tts
+        logger.info("System initialized. Ready for interaction. Ctrl+C to exit.")
 
-        self.output.status("Ready! Press Space (A) or Alt (B).")
+        # 6. Run Orchestrator
+        await orchestrator.run()
 
-        # Start Tasks
-        _ = await asyncio.gather(
-            self.audio_capture_task(recorder, input_handler, player),
-            self.stt_worker(stt),
-            self.llm_worker(translator),
-            self.tts_worker(tts_services),
-            self.playback_worker(player),
-        )
-
-
-def main():
-    _ = logger.add("logs/app.log", rotation="10 MB")
-    orchestrator = Orchestrator()
-    try:
-        asyncio.run(orchestrator.run())
     except KeyboardInterrupt:
-        pass
+        logger.info("Shutdown requested by user.")
+    except Exception as e:
+        logger.exception(f"Fatal error during execution: {e}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

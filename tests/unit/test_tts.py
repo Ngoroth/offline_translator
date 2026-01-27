@@ -1,23 +1,97 @@
+import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
 from app.services.tts import TTSService
+from app.core.config import TTSSettings
 
 
-@patch("app.services.tts.PiperVoice.load")
-def test_tts_synthesize(mock_load: MagicMock) -> None:
-    """Test that TTSService synthesizes text to audio."""
-    # Setup mock voice
-    mock_voice = MagicMock()
-    _ = mock_load.return_value = mock_voice
+# Mock PiperVoice
+@pytest.fixture
+def mock_piper_setup():
+    with patch("app.services.tts.PiperVoice") as mock_class:
+        voice_instance = MagicMock()
+        mock_class.load.return_value = voice_instance
+        # Default sample rate to avoid mock math issues
+        voice_instance.config.sample_rate = 16000
+        yield mock_class, voice_instance
 
-    # Mock synthesize to yield one chunk of silence
-    mock_chunk = MagicMock()
-    mock_chunk.audio_int16_array = np.zeros(16000, dtype=np.int16)
-    mock_voice.synthesize.return_value = [mock_chunk]
 
-    tts = TTSService(model_path="models/tts/test.onnx")
+@pytest.fixture
+def tts_settings():
+    return TTSSettings(model_path=__file__, sample_rate=16000)
 
-    audio = tts.synthesize("Hello")
-    assert isinstance(audio, np.ndarray)
-    assert len(audio) == 16000
-    _ = mock_voice.synthesize.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_tts_initialization(
+    mock_piper_setup: tuple[MagicMock, MagicMock], tts_settings: TTSSettings
+) -> None:
+    mock_class, _ = mock_piper_setup
+
+    with patch("pathlib.Path.is_file", return_value=True):
+        service = TTSService(tts_settings)
+        # Check default_voice instead of voice
+        assert service.default_voice is not None
+        mock_class.load.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_synthesize_conversion_int16_to_float32(
+    mock_piper_setup: tuple[MagicMock, MagicMock], tts_settings: TTSSettings
+) -> None:
+    _, mock_instance = mock_piper_setup
+
+    # Configure mock instance BEFORE init
+    mock_instance.config.sample_rate = 16000
+
+    with patch("pathlib.Path.is_file", return_value=True):
+        service = TTSService(tts_settings)
+
+    # Piper yields int16 bytes
+    fake_int16_data = np.array([0, 32767, -32768, 0], dtype=np.int16).tobytes()
+    mock_instance.synthesize_stream_raw.return_value = iter([fake_int16_data])
+
+    chunks = []
+    async for chunk in service.synthesize("test text", speaker_id=5):
+        chunks.append(chunk)
+
+    # Verify speaker_id was passed
+    mock_instance.synthesize_stream_raw.assert_called_with("test text", speaker_id=5)
+
+    assert len(chunks) == 1
+    float_data = np.frombuffer(chunks[0], dtype=np.float32)
+    assert len(float_data) == 4
+    assert np.allclose(float_data, [0.0, 0.99996948, -1.0, 0.0], atol=1e-4)
+
+
+@pytest.mark.asyncio
+async def test_synthesize_resampling(
+    mock_piper_setup: tuple[MagicMock, MagicMock], tts_settings: TTSSettings
+) -> None:
+    """Test resampling from 22050Hz to 16000Hz"""
+    _, mock_instance = mock_piper_setup
+
+    # Configure mock instance BEFORE init
+    mock_instance.config.sample_rate = 22050
+
+    with patch("pathlib.Path.is_file", return_value=True):
+        service = TTSService(tts_settings)
+
+    # 22050 Hz input
+    t = np.linspace(0, 1.0, 22050, endpoint=False)
+    sine_wave = (np.sin(2 * np.pi * 440 * t) * 32000).astype(np.int16)
+
+    chunk1 = sine_wave[:11025].tobytes()
+    chunk2 = sine_wave[11025:].tobytes()
+
+    mock_instance.synthesize_stream_raw.return_value = iter([chunk1, chunk2])
+
+    full_output = b""
+    async for chunk in service.synthesize("test"):
+        full_output += chunk
+
+    output_floats = np.frombuffer(full_output, dtype=np.float32)
+
+    # Assertions
+    # With resampling, we expect roughly 16000 samples (+/- small error due to buffering/chunking)
+    assert 15900 < len(output_floats) < 16100
+    assert np.max(np.abs(output_floats)) > 0.5
