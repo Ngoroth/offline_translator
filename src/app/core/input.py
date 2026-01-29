@@ -143,30 +143,126 @@ class KeyboardInput(BaseInput):
 
 class GPIOInput(BaseInput):
     """
-    Placeholder for Raspberry Pi GPIO implementation (Story 3.1).
+    Raspberry Pi GPIO implementation using `lgpio`.
+    Supports active low configuration (default for PTT).
     """
 
-    def __init__(self, _pin_map: dict[Role, int]):
-        logger.warning("GPIOInput is not fully implemented yet.")
+    pin_map: dict[Role, int]
+    pressed: dict[Role, bool]
+    chip_id: int
+    handle: int | None
+    _press_queue: asyncio.Queue[Role]
+    _release_events: dict[Role, asyncio.Event]
+    _loop: asyncio.AbstractEventLoop
+    _last_event_time: dict[Role, float]
+    debounce_ns: int
+
+    def __init__(self, pin_map: dict[Role, int], chip_id: int = 0, debounce_ms: int = 50):
+        self.pin_map = pin_map
+        self.pressed = {"a": False, "b": False}
+        self.chip_id = chip_id
+        self.handle = None
+        self._press_queue = asyncio.Queue()
+        self._release_events = {"a": asyncio.Event(), "b": asyncio.Event()}
+        self._release_events["a"].set()
+        self._release_events["b"].set()
+        self._last_event_time = {"a": 0.0, "b": 0.0}
+        self.debounce_ns = debounce_ms * 1_000_000  # ms to ns
+
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning("GPIOInput initialized outside of running loop.")
 
     @override
     def start(self) -> None:
-        pass
+        try:
+            import lgpio
+        except ImportError:
+            logger.error("lgpio library not found. GPIO input will not function.")
+            return
+
+        try:
+            self.handle = lgpio.gpiochip_open(self.chip_id)
+            logger.info(f"Opened GPIO chip {self.chip_id} (Handle: {self.handle})")
+
+            for role, pin in self.pin_map.items():
+                # Claim input
+                lgpio.gpio_claim_input(self.handle, pin)
+                # Set alert for both edges (Press & Release)
+                lgpio.gpio_claim_alert(self.handle, pin, lgpio.BOTH_EDGES, flags=0, infra=0)
+                # Register callback for this pin
+                _ = lgpio.callback(self.handle, pin, lgpio.BOTH_EDGES, self._gpio_callback)
+                logger.info(f"GPIO Pin {pin} claimed for Role {role}")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize GPIO: {e}")
+            if self.handle is not None:
+                lgpio.gpiochip_close(self.handle)
+                self.handle = None
 
     @override
     def stop(self) -> None:
-        pass
+        if self.handle is not None:
+            try:
+                import lgpio
+
+                lgpio.gpiochip_close(self.handle)
+                logger.info("GPIO chip closed")
+            except Exception as e:
+                logger.error(f"Error closing GPIO: {e}")
+            finally:
+                self.handle = None
+
+    def _gpio_callback(self, chip: int, gpio: int, level: int, timestamp: int) -> None:
+        """
+        Callback from lgpio (runs in a separate thread).
+        level: 0 (Low), 1 (High), 2 (Watchdog)
+        """
+        # Suppress unused variable warnings
+        _ = chip
+        _ = timestamp
+
+        role: Role | None = None
+        for r, pin in self.pin_map.items():
+            if pin == gpio:
+                role = r
+                break
+
+        if not role:
+            return
+
+        # Software Debounce
+        # timestamp is in nanoseconds (from lgpio)
+        last_time = self._last_event_time[role]
+        if timestamp - last_time < self.debounce_ns:
+            return  # Ignore noise
+
+        self._last_event_time[role] = float(timestamp)
+
+        # Assuming Active Low (0 = Pressed, 1 = Released)
+        # TODO: Make this configurable via GPIOSettings
+        is_pressed_now = level == 0
+
+        if is_pressed_now:
+            if not self.pressed[role]:
+                self.pressed[role] = True
+                self._release_events[role].clear()
+                # Notify main loop
+                _ = self._loop.call_soon_threadsafe(self._press_queue.put_nowait, role)
+        else:
+            if self.pressed[role]:
+                self.pressed[role] = False
+                _ = self._loop.call_soon_threadsafe(self._release_events[role].set)
 
     @override
     async def wait_for_press(self) -> Role:
-        # Placeholder that never returns to prevent crashes but signal lack of implementation
-        _ = await asyncio.Event().wait()
-        return "a"
+        return await self._press_queue.get()
 
     @override
     async def wait_for_release(self, role: Role) -> None:
-        _ = await asyncio.Event().wait()
+        _ = await self._release_events[role].wait()
 
     @override
     def is_pressed(self, role: Role) -> bool:
-        return False
+        return self.pressed.get(role, False)

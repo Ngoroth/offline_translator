@@ -1,12 +1,13 @@
 import pytest
 import asyncio
 import numpy as np
-from unittest.mock import MagicMock, patch, AsyncMock
+from typing import Any
+from unittest.mock import MagicMock, patch
 from app.orchestrator.pipeline import TranslationPipeline
 from app.services.stt import STTService
 from app.services.llm import LLMService
 from app.services.tts import TTSService
-from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings
+from app.core.config import STTSettings, LLMSettings, TTSSettings
 
 
 @pytest.mark.asyncio
@@ -39,7 +40,8 @@ async def test_integration_cancellation_aborts_pipeline():
         mock_model = mock_whisper_cls.return_value
 
         # Define a slow transcribe function
-        def slow_transcribe(*args, **kwargs):
+        def slow_transcribe(*args: Any, **kwargs: Any):
+            _ = args, kwargs
             import time
 
             time.sleep(0.5)

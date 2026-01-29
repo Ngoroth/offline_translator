@@ -2,14 +2,19 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock, AsyncMock, ANY
 from app.orchestrator.pipeline import TranslationPipeline
-from app.core.config import AppSettings
 from app.orchestrator.session import SessionState
 
 
 @pytest.fixture
 def mock_services() -> dict[str, MagicMock | AsyncMock]:
-    mock_settings = MagicMock(spec=AppSettings)
+    mock_settings = MagicMock()
     mock_settings.speakers = {}
+    # Mock Dual Speaker fields
+    mock_settings.speaker_a_lang = "en"
+    mock_settings.speaker_b_lang = "ru"
+    mock_settings.speaker_a_voice = "voice_en"
+    mock_settings.speaker_b_voice = "voice_ru"
+
     mock_settings.vad = MagicMock()
     mock_settings.vad.aggressiveness = 3
     mock_settings.vad.threshold_ms = 500
@@ -17,8 +22,9 @@ def mock_services() -> dict[str, MagicMock | AsyncMock]:
     mock_settings.audio.sample_rate = 16000
 
     # TTS Mock that returns an async iterator (empty by default)
-    async def empty_async_iter(*args: object, **kwargs: object):
-        if False:
+    async def empty_async_iter(*_args: object, **_kwargs: object):
+        should_yield = False
+        if should_yield:
             yield b""
 
     tts_mock = MagicMock()
@@ -113,7 +119,7 @@ def mock_services_with_data(
     mock_services["llm"].translate.return_value = "Hola"
 
     # TTS returns async iterator with data
-    async def async_iter(_text: str, **kwargs: object):
+    async def async_iter(_text: str, **_kwargs: object):
         # 4 bytes = 1 float32 sample
         yield b"\x00\x00\x00\x00" * 10
 
@@ -139,9 +145,7 @@ async def test_pipeline_flow(
     await pipeline.wait_for_completion()
 
     mock_services_with_data["stt"].transcribe.assert_called()
-    mock_services_with_data["llm"].translate.assert_called_with(
-        "Hello", "English", "Russian", session_id=ANY
-    )
+    mock_services_with_data["llm"].translate.assert_called_with("Hello", "en", "ru", session_id=ANY)
 
     # Check that synthesize was called.
     # Since we use extra_models/default voice, args might vary slightly if we didn't mock tts_model_path in session.
@@ -153,9 +157,7 @@ async def test_pipeline_flow(
 
 
 @pytest.mark.asyncio
-async def test_pipeline_session_management(
-    pipeline: TranslationPipeline, mock_services: dict[str, MagicMock | AsyncMock]
-) -> None:
+async def test_pipeline_session_management(pipeline: TranslationPipeline) -> None:
     """Test session lifecycle and cancellation."""
     # Ensure session manager exists
     assert pipeline.session_manager is not None

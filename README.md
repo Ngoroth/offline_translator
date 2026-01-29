@@ -52,7 +52,28 @@ High-performance, configurable offline speech-to-speech translator designed for 
 - [Usage Scenarios](SCENARIOS.md) - Detailed breakdown of interaction patterns (Barge-in, Multi-phrase, etc.).
 
 ## Testing
+The project uses `pytest` with markers for different test levels.
+
+### Quick Tests (CI)
+Run unit, smoke, and integration tests (~15s):
 ```bash
-uv run pytest
+uv run pytest -m "not e2e"
 ```
-Includes 16+ tests covering the async orchestrator, streaming logic, and hardware abstraction.
+
+### Full E2E Suite (Nightly)
+Run everything including real model tests (~60s+). Requires ~535MB model download on first run.
+```bash
+uv run pytest -m "e2e"
+```
+
+### Performance Benchmarks
+Validate NFRs (Latency ≤1.0s, VAD ≤200ms):
+```bash
+uv run pytest -m "benchmark"
+```
+
+### Test Directory Structure
+- `tests/unit`: Component logic (fast)
+- `tests/smoke`: Service initialization and mocking (fast)
+- `tests/integration`: Pipeline wiring and contracts (medium)
+- `tests/e2e`: Full system with real AI models (slow)

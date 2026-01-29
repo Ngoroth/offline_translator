@@ -74,12 +74,15 @@ class STTService:
                     ) from e
             return self._model
 
-    async def transcribe(self, audio: np.ndarray, session_id: str | None = None) -> str | None:
+    async def transcribe(
+        self, audio: np.ndarray, language: str | None = None, session_id: str | None = None
+    ) -> str | None:
         """
         Transcribe 16kHz mono float32 audio to text.
 
         Args:
             audio: Numpy array of audio samples.
+            language: Target language code (e.g., "en", "ru"). If None, uses default.
             session_id: Optional session ID to check for cancellation.
 
         Returns:
@@ -102,7 +105,7 @@ class STTService:
             def _run_transcription():
                 segments, info = model.transcribe(
                     audio,
-                    language=self.settings.language,
+                    language=language or self.settings.language,
                     beam_size=self.settings.beam_size,
                     vad_filter=True,  # Secondary safeguard as per requirements
                 )

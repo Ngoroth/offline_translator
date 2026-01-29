@@ -9,6 +9,13 @@ def test_load_settings_full_schema(tmp_path: Path):
     defined in the PRD (Audio, STT, LLM, TTS, Input).
     """
     # Create dummy files for validation to pass
+    stt_model = tmp_path / "models/stt/test"
+    stt_model.mkdir(parents=True, exist_ok=True)
+
+    llm_model = tmp_path / "models/llm/test.gguf"
+    llm_model.parent.mkdir(parents=True, exist_ok=True)
+    llm_model.touch()
+
     tts_model = tmp_path / "models/tts/test.onnx"
     tts_model.parent.mkdir(parents=True, exist_ok=True)
     tts_model.touch()
@@ -23,9 +30,9 @@ def test_load_settings_full_schema(tmp_path: Path):
                     "input_device_index": 1,
                     "output_device_index": 2,
                 },
-                "stt": {"model_path": "models/stt/test", "language": "en", "beam_size": 5},
+                "stt": {"model_path": str(stt_model), "language": "en", "beam_size": 5},
                 "llm": {
-                    "model_path": "models/llm/test.gguf",
+                    "model_path": str(llm_model),
                     "context_window": 2048,
                     "n_threads": 4,
                 },
@@ -51,11 +58,11 @@ def test_load_settings_full_schema(tmp_path: Path):
     assert settings.audio.input_device_index == 1
 
     # Assertions for STT
-    assert settings.stt.model_path == "models/stt/test"
+    assert settings.stt.model_path == str(stt_model)
     assert settings.stt.language == "en"
 
     # Assertions for LLM
-    assert settings.llm.model_path == "models/llm/test.gguf"
+    assert settings.llm.model_path == str(llm_model)
     assert settings.llm.n_threads == 4
 
     # Assertions for TTS

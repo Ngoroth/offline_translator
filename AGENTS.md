@@ -45,6 +45,12 @@ uv run python src/app/main.py        # Run the translator
 uv run pytest                        # Run all tests
 ```
 
+### Validation
+```bash
+uv run basedpyright                  # Mandatory type check
+uv run ruff check .                  # Mandatory lint check
+```
+
 ## Project Structure
 ```
 offline_translator/

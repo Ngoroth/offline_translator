@@ -80,8 +80,8 @@ class AudioPlayer:
         self.device_index = device_index
 
     def play(self, data: np.ndarray[tuple[int], np.dtype[np.float32]]) -> None:
-        sd.play(data, samplerate=self.sample_rate, device=self.device_index)
-        sd.wait()
+        _ = sd.play(data, samplerate=self.sample_rate, device=self.device_index)
+        _ = sd.wait()
 
     def stop(self) -> None:
-        sd.stop()
+        _ = sd.stop()

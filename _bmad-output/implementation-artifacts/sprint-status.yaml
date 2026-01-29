@@ -51,14 +51,14 @@ development_status:
   epic-2: in-progress
   2-1-vad-auto-segmentation-logic: done
   2-2-session-management-cancellation: done
-  2-3-barge-in-interruption-support: backlog
-  2-4-dual-speaker-role-language-switching: backlog
-  2-5-integration-smoke-test-hardening: backlog
+  2-3-barge-in-interruption-support: done
+  2-4-dual-speaker-role-language-switching: done
+  2-5-integration-smoke-test-hardening: done
   epic-2-retrospective: optional
 
-  epic-3: backlog
-  3-1-raspberry-pi-gpio-implementation: backlog
-  3-2-configuration-validation-profile-switching: backlog
-  3-3-structured-logging-diagnostics: backlog
-  3-4-automated-test-suite-integration: backlog
+  epic-3: done
+  3-1-raspberry-pi-gpio-implementation: done
+  3-2-configuration-validation-profile-switching: done
+  3-3-structured-logging-diagnostics: done
+  3-4-automated-test-suite-integration: done
   epic-3-retrospective: optional

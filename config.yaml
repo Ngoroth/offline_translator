@@ -31,6 +31,12 @@ profiles:
       threshold_ms: 500
       aggressiveness: 3
 
+    # Dual Speaker Settings (New Format)
+    speaker_a_key: "space"
+    speaker_b_key: "alt"
+    speaker_a_voice: "models/tts/en_US-libritts_r-medium.onnx"
+    speaker_b_voice: "models/tts/ru_RU-denis-medium.onnx"
+
     input:
       ptt_a: "space"
       ptt_b: "alt"

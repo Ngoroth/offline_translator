@@ -71,23 +71,45 @@ class TranslationPipeline:
         if self.session and not self.session.cancel_event.is_set():
             await self.stop_session()
 
-        session_id = self.session_manager.start_session()
-        self.session = Session(session_id=session_id)
+        # Determine configuration based on role
+        source_lang = self.settings.speaker_a_lang  # Default to role A
+        target_lang = self.settings.speaker_b_lang
+        tts_voice: str | None = None
+
+        if role == "a":
+            source_lang = self.settings.speaker_a_lang
+            target_lang = self.settings.speaker_b_lang
+            # TTS voice should be the TARGET language voice (Speaker B's voice)
+            tts_voice = self.settings.speaker_b_voice
+            if not tts_voice and "b" in self.settings.speakers:
+                tts_voice = self.settings.speakers["b"].tts_model
+        elif role == "b":
+            source_lang = self.settings.speaker_b_lang
+            target_lang = self.settings.speaker_a_lang
+            # TTS voice should be the TARGET language voice (Speaker A's voice)
+            tts_voice = self.settings.speaker_a_voice
+            if not tts_voice and "a" in self.settings.speakers:
+                tts_voice = self.settings.speakers["a"].tts_model
+        elif role in self.settings.speakers:
+            # Fallback for other roles if defined in legacy speakers dict
+            speaker = self.settings.speakers[role]
+            source_lang = speaker.from_lang
+            target_lang = speaker.to_lang
+            tts_voice = speaker.tts_model
+
+        # Start session via manager (returns configured Session object)
+        self.session = self.session_manager.start_session(
+            source_lang=source_lang,
+            target_lang=target_lang,
+            tts_voice=tts_voice,
+        )
         self.session.state = SessionState.LISTENING
 
-        # Configure languages based on role
-        if role in self.settings.speakers:
-            speaker = self.settings.speakers[role]
-            self.session.source_lang = speaker.from_lang
-            self.session.target_lang = speaker.to_lang
-            self.session.tts_model_path = speaker.tts_model
-            logger.info(
-                f"Session {self.session.session_id} started for Role {role}: {self.session.source_lang} -> {self.session.target_lang}"
-            )
-        else:
-            logger.warning(
-                f"Role {role} not found in settings.Using defaults: {self.session.source_lang} -> {self.session.target_lang}"
-            )
+        logger.info(
+            f"Session {self.session.session_id} started for Role {role}: "
+            + f"{self.session.source_lang} -> {self.session.target_lang} "
+            + f"(Voice: {self.session.tts_voice})"
+        )
 
         # Start Recorder
         self.recorder.start()
@@ -104,6 +126,18 @@ class TranslationPipeline:
         ]
 
         return self.session
+
+    async def handle_barge_in(self) -> None:
+        """
+        Handle barge-in interruption.
+        Stops current playback/processing immediately, clears queues, and prepares for new input.
+        """
+        if not self.session:
+            return
+
+        logger.info(f"Barge-in detected: Cancelling session {self.session.session_id}")
+        await self.stop_session()
+        # State will be set to LISTENING by next start_session call
 
     async def stop_session(self) -> None:
         """Stop the current session and cancel workers."""
@@ -221,8 +255,10 @@ class TranslationPipeline:
                 except asyncio.TimeoutError:
                     continue
 
-                if self.session.state != SessionState.LISTENING:
-                    continue
+                # Note: We no longer check session.state here because we want to
+                # continue harvesting segments even while previous ones are processing.
+                # The session.state check was blocking multi-segment harvesting (FR11).
+                # VAD should run as long as we're recording, regardless of processing state.
 
                 # Run VAD
                 # chunk is float32
@@ -267,12 +303,19 @@ class TranslationPipeline:
                     await self.llm_queue.put(None)
                     break
 
-                if self.session.state == SessionState.LISTENING:
-                    self.session.state = SessionState.PROCESSING
+                # Note: We no longer transition to PROCESSING here because it was
+                # blocking VAD from collecting additional segments during multi-phrase
+                # sessions. The state transition is now handled in handle_input_complete()
+                # when the user releases PTT. This fixes FR11 (10 phrases per hold session).
 
                 try:
                     session_id = payload["session_id"]
-                    text = await self.stt.transcribe(payload["audio"], session_id=session_id)
+                    # Pass source language to STT to optimize decoding
+                    text = await self.stt.transcribe(
+                        payload["audio"],
+                        language=self.session.source_lang,
+                        session_id=session_id,
+                    )
                     if text:
                         logger.debug(f"Transcribed: {text}")
                         await self.llm_queue.put(
@@ -343,10 +386,10 @@ class TranslationPipeline:
 
                 try:
                     # Stream audio chunks
-                    model_path = self.session.tts_model_path
+                    voice = self.session.tts_voice
                     session_id = payload["session_id"]
                     async for chunk in self.tts.synthesize(
-                        payload["text"], model_path=model_path, session_id=session_id
+                        payload["text"], model_path=voice, session_id=session_id
                     ):
                         if self.session.cancel_event.is_set():
                             break
