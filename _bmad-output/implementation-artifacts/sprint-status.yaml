@@ -48,7 +48,7 @@ development_status:
   1-5-async-orchestrator-pipeline-loop: done
   epic-1-retrospective: done
 
-  epic-2: in-progress
+  epic-2: done
   2-1-vad-auto-segmentation-logic: done
   2-2-session-management-cancellation: done
   2-3-barge-in-interruption-support: done
@@ -61,4 +61,4 @@ development_status:
   3-2-configuration-validation-profile-switching: done
   3-3-structured-logging-diagnostics: done
   3-4-automated-test-suite-integration: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
