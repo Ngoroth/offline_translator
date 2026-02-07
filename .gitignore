@@ -11,3 +11,5 @@ models/
 logs/
 .opencode/
 _bmad/
+.agent/
+_bmad-output/
