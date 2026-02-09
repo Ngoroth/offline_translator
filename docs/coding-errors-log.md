@@ -111,6 +111,40 @@ Different input methods require different handlers:
 
 ---
 
+### Error 5: "Blind Run" - Heavy Startup Blocking Input
+
+**File:** `src/app/main.py`
+
+**What happened:**
+Tested input handling by running the full application.
+
+**Problem:**
+Application takes 60+ seconds to load heavy AI models (LLM, STT). During this time, input handling might not be active, or logs are buffered. User presses buttons with no feedback.
+
+**Solution:**
+Create a dedicated `scripts/hardware_check.py` tool.
+- Isolate input/hardware logic from AI logic.
+- Provide instant feedback (prints/logs).
+- Verify hardware integration independently.
+
+**Lesson:**
+Never test low-level hardware integration by running the full production stack. Always verify components in isolation first.
+
+### Error 6: Input Event Loop Blocking
+
+**File:** `src/app/core/input.py`
+
+**What happened:**
+`EvdevInput` loop might be blocked or not correctly integrated with `asyncio` loop of the main application.
+
+**Problem:**
+If `_read_events` task crashes or is not scheduled properly, no input is detected.
+
+**Fix:**
+Ensure `EvdevInput` handles its own loop or is correctly awaited. The diagnostic script will verify this.
+
+---
+
 ## Patterns to Watch
 
 1. **Platform-specific imports** - Always lazy-load libraries that may not exist on all platforms
