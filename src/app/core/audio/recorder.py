@@ -56,6 +56,8 @@ class AudioRecorder:
                     dtype=np.float32,
                     device=self.device_index,
                     callback=self._callback,
+                    blocksize=8192,  # Larger blocksize to reduce CPU load/overflows
+                    latency="high",  # Relaxed latency requirements
                 )
                 self.stream.start()
                 self.hardware_rate = rate
