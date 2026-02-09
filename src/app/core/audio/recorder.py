@@ -90,7 +90,22 @@ class AudioRecorder:
                 # Simple decimation (only works if ratio is integer, e.g. 48000 -> 16000)
                 if self.hardware_rate % self.sample_rate == 0:
                     step = int(self.hardware_rate / self.sample_rate)
-                    chunk = indata[::step].copy()
+                    # Use mean pooling instead of simple slicing to reduce aliasing
+                    # Reshape to (new_len, step) and take mean along axis 1
+                    try:
+                        # Ensure input length is divisible by step
+                        new_len = len(indata) // step
+                        truncated_len = new_len * step
+                        if truncated_len < len(indata):
+                            # Trim excess samples that don't fit
+                            data_to_process = indata[:truncated_len]
+                        else:
+                            data_to_process = indata
+
+                        chunk = data_to_process.reshape(-1, step).mean(axis=1)
+                    except Exception as e:
+                        logger.error(f"Resampling error: {e}")
+                        chunk = indata[::step].copy()  # Fallback
                 else:
                     # Non-integer ratio (e.g. 44100 -> 16000).
                     # Decimation creates artifacts here, but better than crashing.
