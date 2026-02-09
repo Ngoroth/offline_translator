@@ -165,6 +165,60 @@ For robust cross-platform audio, do not rely on OS drivers to perform format con
 
 ---
 
+### Error 8: "Magic Number" Resampling (Decimation)
+
+**File:** `src/app/core/audio/recorder.py`
+
+**What happened:**
+Attempted to downsample 48kHz to 16kHz by taking every 3rd sample (`indata[::3]`).
+
+**Problem:**
+While fast, simple decimation without a low-pass filter causes severe **aliasing**. High frequencies fold back into the audible range, creating metallic noise/distortion. Whisper cannot recognize speech in this noise (returns "." or hallucinations).
+
+**Solution:**
+Use a proper resampling library (`soxr`, `libsamplerate`) or an external tool (`arecord`, `ffmpeg`) that implements correct DSP filtering.
+Alternatively, implement a simple moving average (mean pooling) before decimation, though this is also imperfect.
+
+**Lesson:**
+DSP (Digital Signal Processing) requires correct math. "Quick hacks" usually destroy signal quality.
+
+### Error 9: Ignoring "Input Overflow" Warnings
+
+**File:** `src/app/core/audio/recorder.py`
+
+**What happened:**
+Logs showed `Audio status: input overflow` repeatedly, but we continued debugging logic errors.
+
+**Problem:**
+Overflow means the CPU cannot keep up with the audio stream callback. Data is lost (gaps in audio). VAD and STT fail on corrupted streams.
+Cause: Python is too slow for real-time DSP on Raspberry Pi 4, or `blocksize` was too small.
+
+**Solution:**
+- Increase `blocksize` (e.g. 4096 -> 8192).
+- Move DSP logic out of the Python main thread (use C-level tools via subprocess).
+
+### Error 10: "Big Bang Integration" Anti-Pattern
+
+**Process Error**
+
+**What happened:**
+We tried to debug audio input by running the full `main.py` application (which loads LLM, STT, TTS).
+
+**Problem:**
+- Slow feedback loop (60s startup time).
+- Too many variables (is it the mic? the VAD? the STT? the LLM?).
+- Logs were buffered/lost due to crashes.
+
+**Solution:**
+**BMAD Principle:** Isolate and Verify.
+1. Create `test_recorder.py` FIRST.
+2. Verify audio quality (listen to the file).
+3. ONLY then integrate into `main.py`.
+
+We eventually did this, but only after wasting an hour on `main.py`.
+
+---
+
 ## Patterns to Watch
 
 1. **Platform-specific imports** - Always lazy-load libraries that may not exist on all platforms
