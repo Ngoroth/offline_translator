@@ -1,38 +1,44 @@
 import asyncio
+import subprocess
 import numpy as np
-import sounddevice as sd
+import threading
 from loguru import logger
 from numpy.typing import NDArray
 
 
 class AudioRecorder:
+    """
+    AudioRecorder implementation using native 'arecord' (ALSA) via subprocess.
+    This avoids PortAudio sample rate issues on Raspberry Pi by offloading resampling to ALSA tools.
+    """
+
     sample_rate: int
-    hardware_rate: int | None
     device_index: int | str | None
-    stream: sd.InputStream | None
+    process: subprocess.Popen[bytes] | None
     buffer: list[NDArray[np.float32]]
     _queue: asyncio.Queue[NDArray[np.float32]]
     recording: bool
     _loop: asyncio.AbstractEventLoop
+    _read_thread: threading.Thread | None
 
     def __init__(self, sample_rate: int = 16000, device_index: int | str | None = None):
         self.sample_rate = sample_rate
-        # Auto-detect hardware rate logic could go here, but for now we trust config or fallback
-        # If device_index is provided and we are on Pi (ALSA), likely need 48000 or 44100
-        self.hardware_rate = None
         self.device_index = device_index
-        self.stream = None
+        self.process = None
         self.buffer = []
         self._queue = asyncio.Queue()
         self.recording = False
-        self._loop = asyncio.get_running_loop()
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning("AudioRecorder initialized outside of running loop.")
 
     def start(self) -> None:
         if self.recording:
             return
 
         self.buffer = []
-        # Clear queue for new session
+        # Clear queue
         while not self._queue.empty():
             try:
                 _ = self._queue.get_nowait()
@@ -41,107 +47,129 @@ class AudioRecorder:
 
         self.recording = True
 
-        # Try to determine optimal sample rate if direct open fails
-        rates_to_try = [self.sample_rate, 48000, 44100]
+        # Determine device string
+        # If device_index is "hw:2,0" or "plughw:2,0", use it.
+        # If it's an int (from portaudio index), we might need to convert,
+        # but for now we assume config provides the ALSA string directly.
+        device = str(self.device_index) if self.device_index else "default"
 
-        # If user configured a specific hardware rate in future, use it.
-        # For now, simplistic fallback strategy.
+        # Construct arecord command
+        # -D <device> : Select PCM by name
+        # -f S16_LE   : Signed 16 bit Little Endian (Standard)
+        # -r <rate>   : Target sample rate (arecord/ALSA handles conversion if plughw is used)
+        # -c 1        : Mono
+        # -t raw      : Raw PCM output (no WAV header)
+        cmd = [
+            "arecord",
+            "-D",
+            device,
+            "-f",
+            "S16_LE",
+            "-r",
+            str(self.sample_rate),
+            "-c",
+            "1",
+            "-t",
+            "raw",
+            # "-" means stdout, but it's implicit when not specifying file?
+            # arecord usually writes to stdout if filename is '-'
+            "-",
+        ]
 
-        for rate in rates_to_try:
-            try:
-                logger.debug(f"Attempting to open audio stream at {rate}Hz...")
-                self.stream = sd.InputStream(
-                    samplerate=rate,
-                    channels=1,
-                    dtype=np.float32,
-                    device=self.device_index,
-                    callback=self._callback,
-                    blocksize=8192,  # Larger blocksize to reduce CPU load/overflows
-                    latency="high",  # Relaxed latency requirements
-                )
-                self.stream.start()
-                self.hardware_rate = rate
-                logger.info(f"Audio stream started at {rate}Hz (Target: {self.sample_rate}Hz)")
-                return  # Success
-            except Exception as e:
-                logger.warning(f"Failed to open at {rate}Hz: {e}")
+        logger.info(f"Starting native recorder: {' '.join(cmd)}")
 
-        # If we get here, nothing worked
-        logger.error("Failed to start audio stream. All sample rates failed.")
-        self.recording = False
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=16384,  # Reasonable buffer size
+            )
+
+            # Start reading thread
+            self._read_thread = threading.Thread(target=self._read_stdout)
+            self._read_thread.start()
+
+        except Exception as e:
+            logger.error(f"Failed to start arecord: {e}")
+            self.recording = False
 
     def stop(self) -> NDArray[np.float32]:
-        if self.stream:
-            self.stream.stop()
-            self.stream.close()
-            self.stream = None
-
         self.recording = False
+
+        if self.process:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+
+            if self.process.stderr:
+                err = self.process.stderr.read()
+                if err:
+                    logger.debug(f"arecord stderr: {err.decode(errors='ignore')}")
+
+            self.process = None
+
+        if self._read_thread:
+            self._read_thread.join()
+            self._read_thread = None
+
         data = self.extract_buffer()
 
-        # DEBUG: Save last recording to file
+        # DEBUG: Save to file for verification
         try:
             import soundfile as sf
 
-            sf.write("debug_last_recording.wav", data, self.sample_rate)
-            logger.info(f"Debug audio saved to debug_last_recording.wav ({len(data)} samples)")
-        except ImportError:
+            sf.write("debug_native_rec.wav", data, self.sample_rate)
+            logger.info(f"Saved debug_native_rec.wav ({len(data)} samples)")
+        except:
             pass
-        except Exception as e:
-            logger.warning(f"Failed to save debug audio: {e}")
 
         return data
 
-    def _callback(
-        self, indata: NDArray[np.float32], _frames: int, _time: object, status: object
-    ) -> None:
-        if status:
-            logger.warning(f"Audio status: {status}")
-        if self.recording:
-            # Resampling logic
-            if self.hardware_rate and self.hardware_rate != self.sample_rate:
-                # Simple decimation (fastest)
-                if self.hardware_rate % self.sample_rate == 0:
-                    step = int(self.hardware_rate / self.sample_rate)
-                    chunk = indata[::step].copy()
-                else:
-                    # Non-integer ratio fallback
-                    ratio = self.hardware_rate / self.sample_rate
-                    indices = np.arange(0, len(indata), ratio).astype(int)
-                    indices = indices[indices < len(indata)]
-                    chunk = indata[indices].copy()
-            else:
-                chunk = indata.copy()
+    def _read_stdout(self) -> None:
+        """Background thread to read from arecord stdout."""
+        if not self.process or not self.process.stdout:
+            return
 
-            self.buffer.append(chunk)
-            _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, chunk)
+        chunk_size = 4096 * 2  # 4096 samples * 2 bytes (16-bit)
+
+        while self.recording and self.process.poll() is None:
+            try:
+                raw_bytes = self.process.stdout.read(chunk_size)
+                if not raw_bytes:
+                    break
+
+                # Convert raw S16_LE bytes to float32
+                # 1. From buffer to int16 array
+                int16_data = np.frombuffer(raw_bytes, dtype=np.int16)
+
+                # 2. Convert to float32 and normalize to [-1.0, 1.0]
+                float_data = int16_data.astype(np.float32) / 32768.0
+
+                if self.recording:
+                    self.buffer.append(float_data)
+                    self._loop.call_soon_threadsafe(self._queue.put_nowait, float_data)
+
+            except Exception as e:
+                logger.error(f"Error reading from arecord: {e}")
+                break
 
     async def get_chunk(self) -> NDArray[np.float32]:
-        """
-        Asynchronously get the next chunk of audio data.
-        """
         return await self._queue.get()
 
     def get_last_chunk(self, num_samples: int) -> NDArray[np.float32]:
-        """
-        Get the last N samples from the buffer without clearing it.
-        Useful for VAD.
-        """
         if not self.buffer:
             return np.array([], dtype=np.float32)
-
         full = np.concatenate(self.buffer)
         if len(full) < num_samples:
             return full.flatten()
         return full[-num_samples:].flatten()
 
     def extract_buffer(self) -> NDArray[np.float32]:
-        """
-        Return all recorded data and clear the buffer.
-        """
         if not self.buffer:
             return np.array([], dtype=np.float32)
-
         data = np.concatenate(self.buffer)
         self.buffer = []
         return data.flatten()
