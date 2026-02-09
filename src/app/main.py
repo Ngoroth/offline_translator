@@ -13,6 +13,19 @@ from app.orchestrator.pipeline import TranslationPipeline
 from app.orchestrator.orchestrator import Orchestrator
 
 
+class MockLLMService:
+    """Mock LLM for testing audio pipeline without memory overhead."""
+
+    def __init__(self, settings):
+        pass
+
+    async def process(
+        self, text: str, source_lang: str, target_lang: str, session_id: str | None = None
+    ) -> str:
+        logger.info(f"MockLLM: Echoing '{text}'")
+        return f"Echo: {text}"
+
+
 def get_input_handler(settings: AppSettings) -> BaseInput:
     """
     HAL Factory: Selects the appropriate input handler based on configuration.
@@ -88,7 +101,9 @@ async def main():
                 tts_models.add(speaker.tts_model)
 
         stt_service = STTService(settings.stt)
-        llm_service = LLMService(settings.llm)
+        # llm_service = LLMService(settings.llm)
+        logger.warning("USING MOCK LLM SERVICE (ECHO MODE)")
+        llm_service = MockLLMService(settings.llm)  # type: ignore
         tts_service = TTSService(settings.tts, extra_models=list(tts_models))
 
         # 5. Initialize Pipeline and Orchestrator
