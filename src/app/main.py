@@ -4,7 +4,7 @@ from loguru import logger
 
 from app.core.audio import AudioPlayer, AudioRecorder
 from app.core.config import AppSettings, load_settings
-from app.core.input import BaseInput, GPIOInput, KeyboardInput, Role
+from app.core.input import BaseInput, EvdevInput, GPIOInput, KeyboardInput, Role
 from app.core.logging import setup_logging
 from app.services.stt import STTService
 from app.services.llm import LLMService
@@ -25,6 +25,11 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
 
     if settings.input_mode == "keyboard":
         return KeyboardInput(key_map=key_map)
+    elif settings.input_mode == "evdev":
+        return EvdevInput(
+            device_path=settings.evdev.device,
+            key_map=key_map,
+        )
     elif settings.input_mode == "gpio":
         return GPIOInput(
             pin_map={"a": settings.gpio.pin_a, "b": settings.gpio.pin_b},

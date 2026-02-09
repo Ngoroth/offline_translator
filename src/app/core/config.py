@@ -62,6 +62,12 @@ class GPIOSettings(BaseModel):
     active_low: bool = True  # True = Press is 0 (Ground), Release is 1 (3.3V)
 
 
+class EvdevSettings(BaseModel):
+    """Settings for evdev input (Linux USB keyboards/numpads without X server)."""
+
+    device: str = "/dev/input/event0"
+
+
 class InputSettings(BaseModel):
     # Legacy PTT settings - use speaker_a_key/speaker_b_key in AppSettings instead
     # TODO: Remove in future version when all configs migrated to new format
@@ -95,6 +101,7 @@ class AppSettings(BaseSettings):
     vad: VADSettings = VADSettings()
     input: InputSettings = InputSettings()
     gpio: GPIOSettings = GPIOSettings()
+    evdev: EvdevSettings = EvdevSettings()
     speakers: dict[str, SpeakerSettings] = {}
 
     # Dual Speaker Role Settings
