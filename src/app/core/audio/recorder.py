@@ -7,21 +7,24 @@ from numpy.typing import NDArray
 
 class AudioRecorder:
     sample_rate: int
-    device_index: int | None
+    hardware_rate: int | None
+    device_index: int | str | None
     stream: sd.InputStream | None
     buffer: list[NDArray[np.float32]]
     _queue: asyncio.Queue[NDArray[np.float32]]
     recording: bool
     _loop: asyncio.AbstractEventLoop
 
-    def __init__(self, sample_rate: int = 16000, device_index: int | None = None):
+    def __init__(self, sample_rate: int = 16000, device_index: int | str | None = None):
         self.sample_rate = sample_rate
+        # Auto-detect hardware rate logic could go here, but for now we trust config or fallback
+        # If device_index is provided and we are on Pi (ALSA), likely need 48000 or 44100
+        self.hardware_rate = None
         self.device_index = device_index
         self.stream = None
         self.buffer = []
         self._queue = asyncio.Queue()
         self.recording = False
-        # Recorder must be initialized within an async loop for the queue to work correctly
         self._loop = asyncio.get_running_loop()
 
     def start(self) -> None:
@@ -38,19 +41,32 @@ class AudioRecorder:
 
         self.recording = True
 
-        try:
-            self.stream = sd.InputStream(
-                samplerate=self.sample_rate,
-                channels=1,
-                dtype=np.float32,
-                device=self.device_index,
-                callback=self._callback,
-            )
-            self.stream.start()
-            logger.debug("Audio stream started")
-        except Exception as e:
-            logger.error(f"Failed to start audio stream: {e}")
-            self.recording = False
+        # Try to determine optimal sample rate if direct open fails
+        rates_to_try = [self.sample_rate, 48000, 44100]
+
+        # If user configured a specific hardware rate in future, use it.
+        # For now, simplistic fallback strategy.
+
+        for rate in rates_to_try:
+            try:
+                logger.debug(f"Attempting to open audio stream at {rate}Hz...")
+                self.stream = sd.InputStream(
+                    samplerate=rate,
+                    channels=1,
+                    dtype=np.float32,
+                    device=self.device_index,
+                    callback=self._callback,
+                )
+                self.stream.start()
+                self.hardware_rate = rate
+                logger.info(f"Audio stream started at {rate}Hz (Target: {self.sample_rate}Hz)")
+                return  # Success
+            except Exception as e:
+                logger.warning(f"Failed to open at {rate}Hz: {e}")
+
+        # If we get here, nothing worked
+        logger.error("Failed to start audio stream. All sample rates failed.")
+        self.recording = False
 
     def stop(self) -> NDArray[np.float32]:
         if self.stream:
@@ -67,7 +83,24 @@ class AudioRecorder:
         if status:
             logger.warning(f"Audio status: {status}")
         if self.recording:
-            chunk = indata.copy()
+            # Resampling logic
+            if self.hardware_rate and self.hardware_rate != self.sample_rate:
+                # Simple decimation (only works if ratio is integer, e.g. 48000 -> 16000)
+                if self.hardware_rate % self.sample_rate == 0:
+                    step = int(self.hardware_rate / self.sample_rate)
+                    chunk = indata[::step].copy()
+                else:
+                    # Non-integer ratio (e.g. 44100 -> 16000).
+                    # Decimation creates artifacts here, but better than crashing.
+                    # Ideally use scipy.signal.resample, but keep deps minimal for now.
+                    # Using nearest-neighbor interpolation via numpy indexing
+                    ratio = self.hardware_rate / self.sample_rate
+                    indices = np.arange(0, len(indata), ratio).astype(int)
+                    indices = indices[indices < len(indata)]  # Clip just in case
+                    chunk = indata[indices].copy()
+            else:
+                chunk = indata.copy()
+
             self.buffer.append(chunk)
             _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, chunk)
 

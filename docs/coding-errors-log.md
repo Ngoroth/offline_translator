@@ -145,6 +145,26 @@ Ensure `EvdevInput` handles its own loop or is correctly awaited. The diagnostic
 
 ---
 
+### Error 7: Relying on ALSA/OS for Sample Rate Conversion
+
+**File:** `src/app/core/audio/recorder.py`
+
+**What happened:**
+Configured recorder to request 16000Hz from hardware, assuming ALSA `plughw` would handle resampling from the microphone's native 48000Hz.
+
+**Problem:**
+PortAudio (via `sounddevice`) often bypasses ALSA plugins or fails to negotiate formats correctly on Raspberry Pi, resulting in `Invalid sample rate` errors.
+
+**Solution:**
+Implement software resampling in the application layer.
+- Open device at native rate (48k/44.1k).
+- Resample (decimate/interpolate) to target rate (16k) in the audio callback.
+
+**Lesson:**
+For robust cross-platform audio, do not rely on OS drivers to perform format conversion. Handle it explicitly in the application.
+
+---
+
 ## Patterns to Watch
 
 1. **Platform-specific imports** - Always lazy-load libraries that may not exist on all platforms
