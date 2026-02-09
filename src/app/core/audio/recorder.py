@@ -77,7 +77,20 @@ class AudioRecorder:
             self.stream = None
 
         self.recording = False
-        return self.extract_buffer()
+        data = self.extract_buffer()
+
+        # DEBUG: Save last recording to file
+        try:
+            import soundfile as sf
+
+            sf.write("debug_last_recording.wav", data, self.sample_rate)
+            logger.info(f"Debug audio saved to debug_last_recording.wav ({len(data)} samples)")
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.warning(f"Failed to save debug audio: {e}")
+
+        return data
 
     def _callback(
         self, indata: NDArray[np.float32], _frames: int, _time: object, status: object
@@ -87,33 +100,15 @@ class AudioRecorder:
         if self.recording:
             # Resampling logic
             if self.hardware_rate and self.hardware_rate != self.sample_rate:
-                # Simple decimation (only works if ratio is integer, e.g. 48000 -> 16000)
+                # Simple decimation (fastest)
                 if self.hardware_rate % self.sample_rate == 0:
                     step = int(self.hardware_rate / self.sample_rate)
-                    # Use mean pooling instead of simple slicing to reduce aliasing
-                    # Reshape to (new_len, step) and take mean along axis 1
-                    try:
-                        # Ensure input length is divisible by step
-                        new_len = len(indata) // step
-                        truncated_len = new_len * step
-                        if truncated_len < len(indata):
-                            # Trim excess samples that don't fit
-                            data_to_process = indata[:truncated_len]
-                        else:
-                            data_to_process = indata
-
-                        chunk = data_to_process.reshape(-1, step).mean(axis=1)
-                    except Exception as e:
-                        logger.error(f"Resampling error: {e}")
-                        chunk = indata[::step].copy()  # Fallback
+                    chunk = indata[::step].copy()
                 else:
-                    # Non-integer ratio (e.g. 44100 -> 16000).
-                    # Decimation creates artifacts here, but better than crashing.
-                    # Ideally use scipy.signal.resample, but keep deps minimal for now.
-                    # Using nearest-neighbor interpolation via numpy indexing
+                    # Non-integer ratio fallback
                     ratio = self.hardware_rate / self.sample_rate
                     indices = np.arange(0, len(indata), ratio).astype(int)
-                    indices = indices[indices < len(indata)]  # Clip just in case
+                    indices = indices[indices < len(indata)]
                     chunk = indata[indices].copy()
             else:
                 chunk = indata.copy()
