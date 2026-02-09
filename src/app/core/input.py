@@ -229,6 +229,10 @@ class EvdevInput(BaseInput):
                 else:
                     key_name = str(key_name_raw)
 
+                # DEBUG LOG
+                if event.value == 1:
+                    logger.debug(f"Evdev key detected: {key_name} (code: {event.code})")
+
                 role = self._get_role(key_name)
                 if not role:
                     continue
