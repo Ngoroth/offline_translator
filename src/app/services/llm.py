@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import cast, final, TYPE_CHECKING
 
 from llama_cpp import Llama, CreateChatCompletionResponse, ChatCompletionRequestMessage
@@ -8,6 +9,16 @@ from app.core.config import LLMSettings
 
 if TYPE_CHECKING:
     from app.orchestrator.session import SessionManager
+
+
+def clean_llm_output(text: str) -> str:
+    """Remove LLM reasoning tags like <think>...</think> from output."""
+    # Remove <think>...</think> blocks (including multiline)
+    text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    # Remove any remaining XML-like tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Clean up extra whitespace
+    return text.strip()
 
 
 class LLMError(Exception):
@@ -97,7 +108,9 @@ class LLMService:
             resp_typed = cast(CreateChatCompletionResponse, response)
             content = resp_typed["choices"][0]["message"]["content"]
 
-            return content.strip() if content else ""
+            # Clean LLM output (remove thinking tags, etc.)
+            cleaned = clean_llm_output(content) if content else ""
+            return cleaned
 
         except Exception as e:
             logger.error(f"Translation failed: {e}")

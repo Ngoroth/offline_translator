@@ -27,7 +27,7 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
         return KeyboardInput(key_map=key_map)
     elif settings.input_mode == "evdev":
         return EvdevInput(
-            device_path=settings.evdev.device,
+            device_path=settings.evdev.device_path,
             key_map=key_map,
         )
     elif settings.input_mode == "gpio":
@@ -62,11 +62,15 @@ async def main():
         input_handler.start()
 
         # Audio
+        # AudioRecorder supports both string (ALSA) and int (portaudio) device identifiers
         recorder = AudioRecorder(
-            sample_rate=settings.audio.sample_rate, device_index=settings.audio.input_device_index
+            sample_rate=settings.audio.sample_rate,
+            device_index=settings.audio.input_device or settings.audio.input_device_index
         )
+        # AudioPlayer uses sounddevice which requires integer device index
         player = AudioPlayer(
-            sample_rate=settings.audio.sample_rate, device_index=settings.audio.output_device_index
+            sample_rate=settings.audio.sample_rate,
+            device_index=settings.audio.output_device_index
         )
 
         # 4. Initialize AI Services

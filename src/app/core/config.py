@@ -12,6 +12,9 @@ class AudioSettings(BaseModel):
     playback_during_recording: bool = False
     input_device_index: int | None = None
     output_device_index: int | None = None
+    # String device names for ALSA (e.g., "plughw:1,0", "default:CARD=Device")
+    input_device: str | None = None
+    output_device: str | None = None
 
 
 class STTSettings(BaseModel):
@@ -65,14 +68,15 @@ class GPIOSettings(BaseModel):
 class EvdevSettings(BaseModel):
     """Settings for evdev input (Linux USB keyboards/numpads without X server)."""
 
-    device: str = "/dev/input/event0"
+    device_path: str | None = None
+    device_name: str | None = None  # e.g. "SIGMACHIP USB Keyboard"
 
 
 class InputSettings(BaseModel):
     # Legacy PTT settings - use speaker_a_key/speaker_b_key in AppSettings instead
     # TODO: Remove in future version when all configs migrated to new format
-    ptt_a: str = "space"
-    ptt_b: str = "alt"
+    ptt_a: str | int = "space"
+    ptt_b: str | int = "alt"
 
 
 class SpeakerSettings(BaseModel):
@@ -105,8 +109,8 @@ class AppSettings(BaseSettings):
     speakers: dict[str, SpeakerSettings] = {}
 
     # Dual Speaker Role Settings
-    speaker_a_key: str = "space"
-    speaker_b_key: str = "alt_r"
+    speaker_a_key: str | int = "space"
+    speaker_b_key: str | int = "alt_r"
     speaker_a_lang: str = "en"
     speaker_b_lang: str = "ru"
 
@@ -149,7 +153,7 @@ class AppSettings(BaseSettings):
     @model_validator(mode="after")
     def validate_speaker_keys(self) -> "AppSettings":
         """Ensure speaker keys are distinct."""
-        if self.speaker_a_key.lower() == self.speaker_b_key.lower():
+        if str(self.speaker_a_key).lower() == str(self.speaker_b_key).lower():
             raise ValueError(
                 f"Speaker keys must be distinct. Both are set to '{self.speaker_a_key}'"
             )

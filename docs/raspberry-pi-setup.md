@@ -60,8 +60,12 @@ cat ~/.ssh/id_ed25519.pub
 From your development machine:
 
 ```bash
+ssh pi@translator
+# or using full mDNS name:
 ssh pi@translator.local
 ```
+
+**Note**: SSH access is configured and working. The device is accessible on the local network as `translator`.
 
 If hostname doesn't resolve, find IP in your router and connect directly:
 ```bash
@@ -248,10 +252,13 @@ The following hardware was tested and confirmed working:
 
 | Component | Model | USB ID | Device Path |
 |-----------|-------|--------|-------------|
+| **Raspberry Pi 4** | **2GB RAM** | **N/A** | **Hostname: `translator`** |
 | USB Flash Drive | Samsung Flash Drive FIT 64GB | `04e8:6300` | USB 3.0 port (blue) |
 | USB Microphone | Texas Instruments PCM2902 | `08bb:2902` | `plughw:3,0` |
 | Speakers | 3.5mm jack + USB power | N/A | `plughw:2,0` (card 2) |
 | USB Numpad | SiGma Micro TRACER Gamma Ivory | `1c4f:0002` | `/dev/input/event1` |
+
+**Network Status**: Pi is connected and accessible on the local network at hostname `translator` (via mDNS: `translator.local`).
 
 ### Audio Device Mapping
 
