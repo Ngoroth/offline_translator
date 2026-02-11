@@ -38,9 +38,8 @@ class MockAudioRecorder(AudioRecorder):
     def get_last_chunk(self, num_samples: int) -> NDArray[np.float32]:
         return np.array([], dtype=np.float32)
 
-    @override
     def _callback(
-        self, indata: NDArray[np.float32], _frames: int, _time: object, status: object
+        self, _indata: NDArray[np.float32], _frames: int, _time: object, _status: object
     ) -> None:
         pass
 

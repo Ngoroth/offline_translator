@@ -5,12 +5,12 @@ import os
 # Add src to path to import app modules
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from app.core.input import EvdevInput
+from app.core.input import EvdevInput, Role
 from loguru import logger
 
 # Configure logger to print to stdout immediately
-logger.remove()
-logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | {message}", level="INFO")
+_ = logger.remove()
+_ = logger.add(sys.stdout, format="<green>{time:HH:mm:ss}</green> | {message}", level="INFO")
 
 
 async def test_input():
@@ -21,7 +21,7 @@ async def test_input():
     logger.info(f"Testing Input on {device_path}...")
     logger.info("Press KP_5 or KP_6 now! (Press Ctrl+C to stop)")
 
-    key_map = {"a": "KEY_KP5", "b": "KEY_KP6"}
+    key_map: dict[Role, str] = {"a": "KEY_KP5", "b": "KEY_KP6"}
 
     input_handler = EvdevInput(device_path, key_map)
 

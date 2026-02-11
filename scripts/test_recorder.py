@@ -2,7 +2,6 @@ import asyncio
 import sys
 import os
 import soundfile as sf
-import numpy as np
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -35,7 +34,14 @@ async def test_recording():
     logger.info(f"Saved to {filename}")
 
     # Verify content (simple RMS check)
-    rms = np.sqrt(np.mean(audio_data**2))
+    from typing import cast
+
+    audio_list: list[float] = cast(list[float], audio_data.tolist())
+    squared_sum = sum(x * x for x in audio_list)
+    mean_val: float = squared_sum / len(audio_list) if audio_list else 0.0
+    import math
+
+    rms: float = math.sqrt(mean_val)
     logger.info(f"RMS Amplitude: {rms:.4f}")
 
     if rms < 0.001:

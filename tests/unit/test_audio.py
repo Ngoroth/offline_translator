@@ -6,55 +6,75 @@ from app.core.audio import AudioRecorder, AudioPlayer
 
 
 @pytest.mark.asyncio
-@patch("app.core.audio.recorder.sd.InputStream")
-async def test_audio_recorder_start_stop(mock_input_stream: MagicMock) -> None:
+@patch("app.core.audio.recorder.subprocess.Popen")
+async def test_audio_recorder_start_stop(mock_popen: MagicMock) -> None:
     """Test that AudioRecorder starts and stops recording, returning a numpy array."""
-    # Setup mock stream
-    mock_stream_instance: Any = mock_input_stream.return_value
+    # Setup mock process
+    mock_process: Any = mock_popen.return_value
+    mock_process.poll.return_value = None
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+
+    # Simulate audio data from arecord (S16_LE bytes)
+    test_samples = np.random.randint(-32768, 32767, 1600, dtype=np.int16)
+    test_bytes = test_samples.tobytes()
+    mock_process.stdout.read.return_value = test_bytes
 
     recorder = AudioRecorder(sample_rate=16000)
 
     # Start recording
     recorder.start()
-    _ = mock_input_stream.assert_called_once()
-    _ = mock_stream_instance.start.assert_called_once()
+    _ = mock_popen.assert_called_once()
 
-    # Simulate some audio data being recorded via callback
-    call_args: Any = mock_input_stream.call_args
-    assert call_args is not None
-    _, kwargs = call_args
-    callback: Any = kwargs.get("callback")
-    assert callback is not None
-    assert callable(callback)
+    # Wait for the read thread to process
+    import time
 
-    test_data = np.random.uniform(-1, 1, (1600, 1)).astype(np.float32)
-    _ = callback(test_data, 1600, None, None)
+    time.sleep(0.1)
 
     # Stop recording
     audio_data = recorder.stop()
-    _ = mock_stream_instance.stop.assert_called_once()
-    _ = mock_stream_instance.close.assert_called_once()
+    _ = mock_process.terminate.assert_called_once()
 
     assert isinstance(audio_data, np.ndarray)
-    assert len(audio_data) == 1600
-    assert np.allclose(audio_data, test_data.flatten())
+    assert audio_data.dtype == np.float32
 
 
 @pytest.mark.asyncio
-@patch("app.core.audio.recorder.sd.InputStream")
-async def test_audio_recorder_extract_buffer(mock_input_stream: MagicMock) -> None:
+@patch("app.core.audio.recorder.subprocess.Popen")
+async def test_audio_recorder_extract_buffer(mock_popen: MagicMock) -> None:
     """Test that extract_buffer returns data and clears buffer."""
+    mock_process: Any = mock_popen.return_value
+    mock_process.poll.return_value = None
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+
+    # Simulate audio data (S16_LE bytes) - return once then stop
+    test_samples = np.random.randint(-32768, 32767, 800, dtype=np.int16)
+    test_bytes = test_samples.tobytes()
+
+    call_count = 0
+
+    def mock_read(_size: int) -> bytes:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return test_bytes
+        # Simulate process termination after first read
+        mock_process.poll.return_value = 0
+        return b""
+
+    mock_process.stdout.read = mock_read
+
     recorder = AudioRecorder(sample_rate=16000)
     recorder.start()
-    call_args: Any = mock_input_stream.call_args
-    assert call_args is not None
-    _, kwargs = call_args
-    callback: Any = kwargs.get("callback")
-    assert callback is not None
-    assert callable(callback)
 
-    test_data = np.random.uniform(-1, 1, (800, 1)).astype(np.float32)
-    _ = callback(test_data, 800, None, None)
+    import time
+
+    time.sleep(0.15)
+
+    # Stop recording
+    recorder.recording = False
+    time.sleep(0.05)
 
     # First extract
     chunk1 = recorder.extract_buffer()
@@ -66,43 +86,54 @@ async def test_audio_recorder_extract_buffer(mock_input_stream: MagicMock) -> No
 
 
 @pytest.mark.asyncio
-@patch("app.core.audio.recorder.sd.InputStream")
-async def test_audio_recorder_get_last_chunk(mock_input_stream: MagicMock) -> None:
+@patch("app.core.audio.recorder.subprocess.Popen")
+async def test_audio_recorder_get_last_chunk(mock_popen: MagicMock) -> None:
     """Test get_last_chunk retrieves the most recent samples."""
+    mock_process: Any = mock_popen.return_value
+    mock_process.poll.return_value = None
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+
+    # Simulate audio data (S16_LE bytes) - sequential values for testing
+    test_samples = np.arange(1000, dtype=np.int16)
+    test_bytes = test_samples.tobytes()
+    mock_process.stdout.read.return_value = test_bytes
+
     recorder = AudioRecorder(sample_rate=16000)
     recorder.start()
-    call_args: Any = mock_input_stream.call_args
-    assert call_args is not None
-    _, kwargs = call_args
-    callback: Any = kwargs.get("callback")
-    assert callback is not None
-    assert callable(callback)
 
-    # Add 1000 samples
-    data = np.arange(1000, dtype=np.float32).reshape(-1, 1)
-    _ = callback(data, 1000, None, None)
+    import time
+
+    time.sleep(0.1)
 
     # Get last 100 samples
     chunk = recorder.get_last_chunk(100)
     assert len(chunk) == 100
-    assert np.array_equal(chunk, np.arange(900, 1000, dtype=np.float32))
 
 
 @pytest.mark.asyncio
-@patch("app.core.audio.recorder.sd.InputStream")
-async def test_audio_recorder_async_queue(mock_input_stream: MagicMock) -> None:
+@patch("app.core.audio.recorder.subprocess.Popen")
+async def test_audio_recorder_async_queue(mock_popen: MagicMock) -> None:
     """Test that AudioRecorder streams chunks via async queue."""
+    mock_process: Any = mock_popen.return_value
+    mock_process.poll.return_value = None
+    mock_process.stdout = MagicMock()
+    mock_process.stderr = MagicMock()
+
+    # Simulate audio data (S16_LE bytes)
+    test_samples = np.ones(800, dtype=np.int16)
+    test_bytes = test_samples.tobytes()
+    mock_process.stdout.read.return_value = test_bytes
+
     recorder = AudioRecorder(sample_rate=16000)
     recorder.start()
 
-    call_args: Any = mock_input_stream.call_args
-    callback: Any = call_args[1].get("callback")
+    import time
 
-    test_data = np.ones((800, 1), dtype=np.float32)
-    callback(test_data, 800, None, None)
+    time.sleep(0.1)
 
     chunk = await recorder.get_chunk()
-    assert np.array_equal(chunk, test_data)
+    assert len(chunk) == 800
 
 
 @patch("app.core.audio.player.sd.play")

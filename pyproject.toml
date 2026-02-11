@@ -25,6 +25,7 @@ dev = [
     "ruff>=0.1.0",
     "basedpyright>=1.1.0",
     "huggingface-hub>=0.20.0",   # Model downloads in tests
+    "soundfile>=0.13.0",         # Debug audio file I/O
 ]
 
 [build-system]

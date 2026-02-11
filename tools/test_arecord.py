@@ -1,5 +1,4 @@
 import subprocess
-import time
 import os
 
 
@@ -32,7 +31,7 @@ def test_arecord():
 
     try:
         # Run command directly
-        result = subprocess.run(cmd, check=True, capture_output=True)
+        _ = subprocess.run(cmd, check=True, capture_output=True)
         print(f"Success! Saved to {output_file}")
 
         # Check file size
@@ -46,7 +45,10 @@ def test_arecord():
 
     except subprocess.CalledProcessError as e:
         print(f"Error running arecord: {e}")
-        print(f"Stderr: {e.stderr.decode()}")
+        stderr_val = getattr(e, "stderr", None)
+        if stderr_val is not None and isinstance(stderr_val, bytes):
+            stderr_str: str = stderr_val.decode()
+            print(f"Stderr: {stderr_str}")
     except FileNotFoundError:
         print("Error: 'arecord' not found. Is alsa-utils installed?")
 

@@ -6,7 +6,7 @@ from app.core.input import KeyboardInput
 @pytest.mark.asyncio
 async def test_keyboard_input_async_press() -> None:
     """Test that KeyboardInput waits for events asynchronously."""
-    with patch("app.core.input.keyboard.Listener") as mock_listener_cls:
+    with patch("pynput.keyboard.Listener") as mock_listener_cls:
         mock_listener_instance = mock_listener_cls.return_value
 
         # Initialize
@@ -51,7 +51,7 @@ async def test_keyboard_input_async_press() -> None:
 
 def test_keyboard_input_state_tracking() -> None:
     """Test is_pressed state tracking."""
-    with patch("app.core.input.keyboard.Listener"):
+    with patch("pynput.keyboard.Listener"):
         input_handler = KeyboardInput(key_map={"a": "space"})
 
         # Simulate Press
@@ -70,7 +70,7 @@ def test_keyboard_input_state_tracking() -> None:
 
 def test_keyboard_input_key_matching() -> None:
     """Test robust key matching logic."""
-    with patch("app.core.input.keyboard.Listener"):
+    with patch("pynput.keyboard.Listener"):
         input_handler = KeyboardInput(key_map={"a": "space", "b": "alt"})
 
         # Test space (Key.space usually has .name='space')

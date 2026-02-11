@@ -18,17 +18,21 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
     HAL Factory: Selects the appropriate input handler based on configuration.
     """
     # Use the new dual speaker keys from config
-    key_map: dict[Role, str] = {
-        "a": settings.speaker_a_key,
-        "b": settings.speaker_b_key,
+    # Convert keys to str for keyboard/evdev inputs
+    key_map_str: dict[Role, str] = {
+        "a": str(settings.speaker_a_key),
+        "b": str(settings.speaker_b_key),
     }
 
     if settings.input_mode == "keyboard":
-        return KeyboardInput(key_map=key_map)
+        return KeyboardInput(key_map=key_map_str)
     elif settings.input_mode == "evdev":
+        device_path = settings.evdev.device_path
+        if device_path is None:
+            raise ValueError("evdev.device_path must be configured when using evdev input mode")
         return EvdevInput(
-            device_path=settings.evdev.device_path,
-            key_map=key_map,
+            device_path=device_path,
+            key_map=key_map_str,
         )
     elif settings.input_mode == "gpio":
         return GPIOInput(
@@ -38,7 +42,7 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
         )
     else:
         logger.error(f"Unsupported input mode: {settings.input_mode}. Defaulting to keyboard.")
-        return KeyboardInput(key_map=key_map)
+        return KeyboardInput(key_map=key_map_str)
 
 
 async def main():
@@ -65,12 +69,11 @@ async def main():
         # AudioRecorder supports both string (ALSA) and int (portaudio) device identifiers
         recorder = AudioRecorder(
             sample_rate=settings.audio.sample_rate,
-            device_index=settings.audio.input_device or settings.audio.input_device_index
+            device_index=settings.audio.input_device or settings.audio.input_device_index,
         )
         # AudioPlayer uses sounddevice which requires integer device index
         player = AudioPlayer(
-            sample_rate=settings.audio.sample_rate,
-            device_index=settings.audio.output_device_index
+            sample_rate=settings.audio.sample_rate, device_index=settings.audio.output_device_index
         )
 
         # 4. Initialize AI Services

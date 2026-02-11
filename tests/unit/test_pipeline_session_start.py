@@ -54,7 +54,7 @@ async def test_pipeline_start_session_config():
     )
     await pipeline.start_session(role="b")
 
-    # Assert B
+    # Assert B - for role "b", target is speaker_a_lang (en), so voice should be speaker_a_voice
     pipeline.session_manager.start_session.assert_called_with(
         source_lang="ru", target_lang="en", tts_voice="voice_en"
     )

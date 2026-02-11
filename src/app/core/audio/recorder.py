@@ -28,6 +28,7 @@ class AudioRecorder:
         self.buffer = []
         self._queue = asyncio.Queue()
         self.recording = False
+        self._read_thread = None
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -100,7 +101,7 @@ class AudioRecorder:
         if self.process:
             self.process.terminate()
             try:
-                self.process.wait(timeout=1)
+                _ = self.process.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 self.process.kill()
 
@@ -123,7 +124,7 @@ class AudioRecorder:
 
             sf.write("debug_native_rec.wav", data, self.sample_rate)
             logger.info(f"Saved debug_native_rec.wav ({len(data)} samples)")
-        except:
+        except Exception:
             pass
 
         return data
@@ -150,7 +151,7 @@ class AudioRecorder:
 
                 if self.recording:
                     self.buffer.append(float_data)
-                    self._loop.call_soon_threadsafe(self._queue.put_nowait, float_data)
+                    _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, float_data)
 
             except Exception as e:
                 logger.error(f"Error reading from arecord: {e}")
