@@ -1,7 +1,7 @@
 # Neuromancer Pi Configuration
 
 # Select the active profile: "desktop_rtx4070" or "rpi_deployment"
-current_profile: "desktop_rtx4070"
+current_profile: "rpi_deployment"
 
 profiles:
   desktop_rtx4070:
@@ -46,21 +46,24 @@ profiles:
         name: "Speaker A"
         from_lang: "English"
         to_lang: "Russian"
-        tts_model: "models/tts/ru_RU-denis-medium.onnx" # Example Russian voice
+        tts_model: "models/tts/ru_RU-denis-medium.onnx"
       b:
         name: "Speaker B"
         from_lang: "Russian"
         to_lang: "English"
-        tts_model: "models/tts/en_US-libritts_r-medium.onnx" # Example English voice
+        tts_model: "models/tts/en_US-libritts_r-medium.onnx"
 
   rpi_deployment:
     platform: "rpi"
-    input_mode: "gpio"
+    input_mode: "evdev"
     
     audio:
       sample_rate: 16000
       channels: 1
       playback_during_recording: false
+      # Use ALSA device names for Raspberry Pi
+      input_device: "plughw:1,0"  # USB microphone
+      output_device: "plughw:0,0"  # Built-in audio or USB speakers
     
     stt:
       model_path: "tiny"
@@ -80,14 +83,37 @@ profiles:
       threshold_ms: 500
       aggressiveness: 3
 
+    # GPIO Configuration for Raspberry Pi (backup option)
+    gpio:
+      chip_id: 0
+      pin_a: 17  # GPIO17 - Speaker A button
+      pin_b: 27  # GPIO27 - Speaker B button
+      debounce_ms: 50
+      active_low: true
+
+    # Evdev Configuration for USB Numpad
+    evdev:
+      device_path: "/dev/input/event1"
+      device_name: "SIGMACHIP USB Keyboard"
+
+    # Dual Speaker Settings
+    speaker_a_key: "KEY_KP5"  # Numpad 5
+    speaker_b_key: "KEY_KP6"  # Numpad 6
+    speaker_a_voice: "models/tts/ru_RU-denis-medium.onnx"  # Target language voice
+    speaker_b_voice: "models/tts/en_US-libritts_r-medium.onnx"  # Target language voice
+
     input:
-      ptt_a: "space"
-      ptt_b: "alt"
+      ptt_a: "kp5"
+      ptt_b: "kp6"
 
     speakers:
       a:
+        name: "Speaker A"
         from_lang: "English"
         to_lang: "Russian"
+        tts_model: "models/tts/ru_RU-denis-medium.onnx"
       b:
+        name: "Speaker B"
         from_lang: "Russian"
         to_lang: "English"
+        tts_model: "models/tts/en_US-libritts_r-medium.onnx"

@@ -319,14 +319,15 @@ class TranslationPipeline:
                         session_id=session_id,
                     )
                     if text:
-                        logger.debug(f"Transcribed: {text}")
-                        await self.llm_queue.put(
-                            {
-                                "text": text,
-                                "language": self.session.source_lang,
-                                "session_id": session_id,
-                            }
-                        )
+                        logger.info(f"STT Transcribed: {text}")
+                        llm_payload = {
+                            "text": text,
+                            "language": self.session.source_lang,
+                            "session_id": session_id,
+                        }
+                        logger.debug(f"Sending to LLM queue: {llm_payload}")
+                        await self.llm_queue.put(llm_payload)
+                        logger.debug("Sent to LLM queue successfully")
                 except Exception as e:
                     logger.error(f"STT Error: {e}")
 
@@ -352,12 +353,16 @@ class TranslationPipeline:
                     target_lang = self.session.target_lang
                     session_id = payload["session_id"]
 
+                    logger.info(
+                        f"LLM translating: '{payload['text']}' from {source_lang} to {target_lang}"
+                    )
+
                     translated_text = await self.llm.translate(
                         payload["text"], source_lang, target_lang, session_id=session_id
                     )
 
                     if translated_text:
-                        logger.debug(f"Translated: {translated_text}")
+                        logger.info(f"LLM Translated: {translated_text}")
                         await self.tts_queue.put(
                             {
                                 "text": translated_text,

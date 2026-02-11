@@ -93,12 +93,12 @@ FR24: Epic 1 - Zero telemetry
 ## Epic List
 
 ### Epic 1: Raspberry Pi 4 Deployment & Core Functionality
-Deploy the existing Windows-verified application to Raspberry Pi 4, ensuring all translation, interaction, and configuration features function correctly on the target hardware with GPIO support.
+Deploy the existing Windows-verified application to Raspberry Pi 4, ensuring all translation, interaction, and configuration features function correctly on the target hardware with USB Numpad support.
 **FRs covered:** FR1, FR2, FR3, FR4, FR5, FR6, FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19, FR20, FR21, FR22, FR23, FR24
 
 ## Epic 1: Raspberry Pi 4 Deployment & Core Functionality
 
-Deploy the existing Windows-verified application to Raspberry Pi 4, ensuring all translation, interaction, and configuration features function correctly on the target hardware with GPIO support.
+Deploy the existing Windows-verified application to Raspberry Pi 4, ensuring all translation, interaction, and configuration features function correctly on the target hardware with USB Numpad support.
 
 ### Story 1.1: Core Deployment & Service Verification
 
@@ -115,21 +115,20 @@ So that I can confirm the core pipeline works on the target hardware.
 **Then** The application should start without crashing (even if models/audio are not configured yet)
 **And** Logs should show successful service initialization
 
-### Story 1.2: GPIO Input Implementation
+### Story 1.2: USB Numpad Input Implementation
 
 As a User,
-I want to use a physical button (GPIO) to trigger translation,
-So that I can use the device without a keyboard.
+I want to use a USB Numpad to trigger translation and switch roles,
+So that I can control the device easily in the field using a robust input device.
 
 **Acceptance Criteria:**
 
-**Given** A button connected to a GPIO pin (e.g., GPIO 17)
-**When** I configure `input_device_type: gpio` and `gpio_pin: 17` in `config.yaml`
-**And** I press the button
+**Given** A USB Numpad connected to the Raspberry Pi
+**When** I configure `input_device_type: keyboard` in `config.yaml`
+**And** I press the assigned PTT key (e.g., Numpad Enter or Numpad 0)
 **Then** The system should log "PTT Press Detected"
-**When** I release the button
-**Then** The system should log "PTT Release Detected"
-**And** The HAL implementation should handle debounce correctly (<50ms latency)
+**And** I should be able to map different keys to different languages/roles
+**Note**: Must ensure input works in the specific RPi runtime environment (Headless vs Desktop, potentially using `evdev` if `pynput` fails in headless).
 
 ### Story 1.3: Audio I/O Configuration
 

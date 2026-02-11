@@ -18,20 +18,20 @@ classification:
 # Product Requirements Document - offline_translator
 
 **Author:** Ngoroth
-**Date:** 2026-01-22
+**Date:** 2026-02-09
 
 ## Executive Summary
 
 Offline Translator (Neuromancer Pi) is a high-performance, privacy-first speech-to-speech translation system designed for real-time bilingual communication in environments without internet access. The system features an innovative async pipeline architecture that enables concurrent processing of audio, text, and speech for near-zero latency. By processing speech segments while the user is still speaking (auto-segmentation), the system delivers translations almost instantly after the button is released.
 
-Unlike traditional translation apps that force users to wait through sequential processing after speaking, this solution leverages stream-based async pipelines to minimize delay. The system is designed with a hardware abstraction layer to support multiple platforms, including Windows desktops and Raspberry Pi, making it ideal for outdoor activities like hiking and camping where internet connectivity is unavailable.
+Unlike traditional translation apps that force users to wait through sequential processing after speaking, this solution leverages stream-based async pipelines to minimize delay. The system is designed with a hardware abstraction layer to support multiple platforms, including Windows desktops and Raspberry Pi 4, making it ideal for outdoor activities like hiking and camping where internet connectivity is unavailable.
 
 ## Success Criteria
 
 ### User Success
-- **Joke Understanding**: Users can understand jokes and cultural references in translation.
+- **Entity Preservation**: Critical entities (names, numbers, locations) are preserved in >95% of translations.
 - **Context Preservation**: Translation maintains conversation context and logical flow.
-- **Tone Retention**: Conversational tone and mood are preserved in the translated output.
+- **Sentiment Alignment**: The sentiment (positive/negative/neutral) of the translation matches the source in >90% of cases.
 - **Seamless Dialogue**: Users can communicate naturally without repetitive "I don't understand" requests.
 - **Continuous Flow**: Dialogue occurs smoothly without forced interruptions or awkward pauses.
 - **Performance Success**: Users can maintain a 2-minute dialogue on everyday topics with zero comprehension issues.
@@ -51,19 +51,19 @@ Unlike traditional translation apps that force users to wait through sequential 
 
 ### Phase 1: MVP (Minimum Viable Product)
 **Goal:** Prove that async pipeline + LLM enables near-zero latency offline translation on Windows.
-- **Platform**: Windows with keyboard PTT (Space for En→Ru, Alt for Ru→En).
+- **Platform**: Windows with USB Numpad/Keyboard PTT (Space for En→Ru, Alt for Ru→En).
 - **Pipeline**: Async architecture (STT + LLM + TTS concurrently).
-- **Segmentation**: Auto-segmentation via VAD with 0.5s pause detection.
+- **Segmentation**: Auto-segmentation with 0.5s pause detection.
 - **Interaction**: Barge-in interruption support using any PTT key.
 - **Abstraction**: Hardware Abstraction Layer (HAL) for future Raspberry Pi support.
 - **Languages**: Single language pair (Russian ↔ English).
 - **Quality**: Minimum 12 unit and integration tests covering the pipeline.
 
 ### Phase 2: Growth (Post-MVP)
-- **Hardware**: GPIO PTT button support.
-- **Autonomy**: Standalone Raspberry Pi device (no laptop/PC required).
+- **Hardware**: USB Numpad Integration.
+- **Autonomy**: Standalone Raspberry Pi 4 device (no laptop/PC required).
 - **Portability**: Battery power management (power bank optimization).
-- **Performance**: Maintain ≤ 1.0s latency on Raspberry Pi CPU.
+- **Performance**: Maintain ≤ 1.0s latency on Raspberry Pi 4 CPU.
 
 ### Phase 3: Vision
 - **Language Expansion**: Support for Ukrainian, Farsi, and multiple concurrent language pairs.
@@ -89,8 +89,8 @@ Unlike traditional translation apps that force users to wait through sequential 
 **Outcome**: The user fixes file permissions based on error messages and updates the README with a troubleshooting guide.
 
 ### 4. Administrator: Optimization Path (RPi Deployment)
-**Situation**: An admin is preparing a Raspberry Pi for field use.
-**Action**: Switch profile to Raspberry Pi deployment, select optimized STT and LLM models, and configure VAD thresholds for the CPU.
+**Situation**: An admin is preparing a Raspberry Pi 4 for field use.
+**Action**: Switch profile to Raspberry Pi deployment, select optimized STT and LLM models, and configure thresholds for the CPU.
 **Outcome**: The system achieves 0.9s latency on the limited hardware, ensuring autonomy in the field.
 
 ### 5. Humanitarian User: Multi-language Support (Oksana)
@@ -116,7 +116,22 @@ Unlike traditional translation apps that force users to wait through sequential 
 
 ### Risk Mitigations
 - **Translation Quality**: Use modern LLMs with prompt engineering to preserve idioms.
-- **Hardware Limitations**: Mitigate Raspberry Pi CPU constraints by using smaller models and optimized VAD.
+- **Hardware Limitations**: Mitigate Raspberry Pi 4 CPU constraints by using smaller models and optimized VAD.
+
+## Assumptions & Dependencies
+
+### Hardware
+- **Compute**: Raspberry Pi 4 Model B (4GB or 8GB RAM).
+- **Audio Input**: USB Analog Microphone (Plug-and-Play class compliant).
+- **Control**: USB Numeric Keypad (Numpad) for PTT control.
+- **Audio Output**: 3.5mm Jack or USB Audio output.
+
+### Environment
+- **Noise Level**: Performance is optimized for low-to-moderate ambient noise. High noise environments may degrade STT accuracy.
+- **Power**: Stable 5V 3A power supply required for RPi4 and USB peripherals.
+
+### Software/Data
+- **Models**: Quantized models (GGUF/ONNX) must fit within available RAM (leaving ~512MB for OS/System).
 
 ## Innovation & Novel Patterns
 
@@ -129,7 +144,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 ## Desktop/CLI/Embedded Specific Requirements
 
 ### Technical Architecture Considerations
-- **Platform Support**: Primary support for Windows and Raspberry Pi. Future Mac/Linux support.
+- **Platform Support**: Primary support for Windows and Raspberry Pi 4. Future Mac/Linux support.
 - **System Integration**: Cross-platform audio I/O, hardware abstraction for input devices.
 - **Manual Updates**: Users pull code and download models manually via the repository or provided scripts.
 
@@ -154,10 +169,10 @@ Unlike traditional translation apps that force users to wait through sequential 
 ### Translation & Speech Processing
 - **FR1**: Users can start a translation session by holding a PTT key.
 - **FR2**: The system can transcribe speech to text using the STT engine.
-- **FR3**: The system can translate text using the LLM service while preserving context.
-- **FR4**: The system can synthesize translated text to speech using the TTS engine.
+- **FR3**: The system can translate text while preserving context.
+- **FR4**: The system can synthesize translated text to speech.
 - **FR5**: The system can process pipeline stages concurrently.
-- **FR6**: The system can segment speech automatically during recording via voice activity detection (VAD).
+- **FR6**: The system can segment speech automatically during recording.
 - **FR7**: The system can select the correct language pair based on the active speaker role.
 
 ### Interaction & UI
@@ -165,7 +180,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 - **FR9**: Users can select speaker roles using dedicated keys.
 - **FR10**: The system can play translated audio automatically when ready.
 - **FR11**: Users can speak up to 10 phrases in one hold session using auto-segmentation.
-- **FR12**: The system can manage unique session identifiers to cancel background tasks during interruptions.
+- **FR12**: The system can cancel background tasks during interruptions.
 
 ### Configuration & Platform
 - **FR13**: Users can configure language pairs in the system configuration file.
@@ -174,7 +189,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 - **FR16**: Users can tune detection thresholds for segmentation accuracy.
 - **FR17**: The system can validate configuration at startup using the configuration validation service.
 - **FR18**: The system can capture audio at 16kHz mono float32.
-- **FR19**: The system can support various input devices through the hardware abstraction layer.
+- **FR19**: The system can support USB input devices (Numpad, Microphone) through the hardware abstraction layer.
 - **FR20**: The system can operate entirely offline without network dependencies.
 
 ### Testing & Privacy
@@ -188,7 +203,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 ### Performance
 - **NFR1 (Latency)**: Response time ≤ 1.0s from PTT release to audio playback start, measured by internal pipeline timestamps, to ensure natural conversation flow.
 - **NFR2 (Streaming)**: Segment processing start within 200ms of VAD pause detection, measured by processing logs, to maximize concurrency.
-- **NFR3 (Resources)**: CPU usage ≤ 80% on Raspberry Pi 5 hardware, measured by system monitoring tools, to ensure audio stream stability and prevent thermal throttling.
+- **NFR3 (Resources)**: CPU usage ≤ 80% on Raspberry Pi 4 hardware, measured by system monitoring tools, to ensure audio stream stability and prevent thermal throttling.
 
 ### Reliability & Usability
 - **NFR4 (Autonomy)**: Stable operation for 12 continuous hours without restart, measured by soak testing, to support full-day field use.
@@ -199,3 +214,12 @@ Unlike traditional translation apps that force users to wait through sequential 
 
 ### Portability
 - **NFR9 (HAL)**: Hardware profile switching via configuration change only with zero code modification, measured by configuration audit, to ensure ease of deployment across supported platforms.
+
+## Glossary
+
+- **PTT (Push-to-Talk)**: A method of conversation where the user holds a button to speak and releases it to send the audio.
+- **STT (Speech-to-Text)**: The process of converting spoken audio into text.
+- **TTS (Text-to-Speech)**: The process of converting text into spoken audio.
+- **LLM (Large Language Model)**: The AI component responsible for translation and context handling.
+- **HAL (Hardware Abstraction Layer)**: A software layer that allows the application to interact with different hardware (Windows vs. RPi) uniformly.
+- **Barge-in**: The ability to interrupt the current audio playback by pressing a PTT key.
