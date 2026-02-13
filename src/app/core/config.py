@@ -55,6 +55,10 @@ class TTSSettings(BaseModel):
 class VADSettings(BaseModel):
     threshold_ms: int = Field(default=500, gt=0)
     aggressiveness: int = Field(default=3, ge=0, le=3)
+    auto_harvest: bool = Field(
+        default=True,
+        description="Automatically harvest segments on silence. Set to False for PTT-only mode.",
+    )
 
 
 class GPIOSettings(BaseModel):

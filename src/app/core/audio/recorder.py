@@ -118,15 +118,6 @@ class AudioRecorder:
 
         data = self.extract_buffer()
 
-        # DEBUG: Save to file for verification
-        try:
-            import soundfile as sf
-
-            sf.write("debug_native_rec.wav", data, self.sample_rate)
-            logger.info(f"Saved debug_native_rec.wav ({len(data)} samples)")
-        except Exception:
-            pass
-
         return data
 
     def _read_stdout(self) -> None:

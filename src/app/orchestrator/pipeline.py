@@ -54,6 +54,7 @@ class TranslationPipeline:
             threshold_ms=settings.vad.threshold_ms,
             sample_rate=settings.audio.sample_rate,
         )
+        self.vad_auto_harvest = settings.vad.auto_harvest
 
         # Queues
         self.stt_queue: asyncio.Queue[AudioPayload | None] = asyncio.Queue()
@@ -268,23 +269,30 @@ class TranslationPipeline:
 
                 # Check silence
                 if self.silence_detector.is_silent_timeout(is_speech, len(chunk)):
-                    logger.info("VAD: Silence threshold reached. Harvesting segment.")
+                    if self.vad_auto_harvest:
+                        logger.info("VAD: Silence threshold reached. Harvesting segment.")
 
-                    # Extract whatever is in the recorder buffer
-                    # This clears the buffer, so we get the "sentence" so far.
-                    audio_data = self.recorder.extract_buffer()
+                        # Extract whatever is in the recorder buffer
+                        # This clears the buffer, so we get the "sentence" so far.
+                        audio_data = self.recorder.extract_buffer()
 
-                    if len(audio_data) > 0:
-                        payload: AudioPayload = {
-                            "audio": audio_data,
-                            "sample_rate": self.recorder.sample_rate,
-                            "session_id": self.session.session_id,
-                        }
-                        await self.stt_queue.put(payload)
-                        logger.debug(f"Pushed {len(audio_data)} samples to STT queue")
+                        if len(audio_data) > 0:
+                            payload: AudioPayload = {
+                                "audio": audio_data,
+                                "sample_rate": self.recorder.sample_rate,
+                                "session_id": self.session.session_id,
+                            }
+                            await self.stt_queue.put(payload)
+                            logger.debug(f"Pushed {len(audio_data)} samples to STT queue")
 
-                    # Reset silence detector
-                    self.silence_detector.reset()
+                        # Reset silence detector
+                        self.silence_detector.reset()
+                    else:
+                        # In PTT-only mode, just reset the detector but keep recording
+                        logger.debug(
+                            "VAD: Silence detected, but waiting for PTT release (auto_harvest=False)"
+                        )
+                        self.silence_detector.reset()
 
         except asyncio.CancelledError:
             logger.debug("VAD Worker cancelled")
@@ -320,11 +328,16 @@ class TranslationPipeline:
                     )
                     if text:
                         logger.info(f"STT Transcribed: {text}")
-                        llm_payload = {
-                            "text": text,
-                            "language": self.session.source_lang,
-                            "session_id": session_id,
-                        }
+                        from typing import cast
+
+                        llm_payload = cast(
+                            TextPayload,
+                            {
+                                "text": text,
+                                "language": self.session.source_lang,
+                                "session_id": session_id,
+                            },
+                        )
                         logger.debug(f"Sending to LLM queue: {llm_payload}")
                         await self.llm_queue.put(llm_payload)
                         logger.debug("Sent to LLM queue successfully")
