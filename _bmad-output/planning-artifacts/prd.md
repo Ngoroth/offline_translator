@@ -121,7 +121,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 ## Assumptions & Dependencies
 
 ### Hardware
-- **Compute**: Raspberry Pi 4 Model B (4GB or 8GB RAM).
+- **Compute**: Raspberry Pi 4 Model B (4GB RAM).
 - **Audio Input**: USB Analog Microphone (Plug-and-Play class compliant).
 - **Control**: USB Numeric Keypad (Numpad) for PTT control.
 - **Audio Output**: 3.5mm Jack or USB Audio output.
