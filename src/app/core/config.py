@@ -44,13 +44,6 @@ class TTSSettings(BaseModel):
     speaker_id: int | None = None
     sample_rate: int | None = Field(default=None, gt=0)
 
-    @field_validator("model_path")
-    @classmethod
-    def validate_model_path(cls, v: str) -> str:
-        if not Path(v).is_file():
-            raise ValueError(f"TTS model file not found: {v}")
-        return v
-
 
 class VADSettings(BaseModel):
     threshold_ms: int = Field(default=500, gt=0)
@@ -122,37 +115,6 @@ class AppSettings(BaseSettings):
     # Empty string means use the default TTS model from tts.model_path
     speaker_a_voice: str = ""
     speaker_b_voice: str = ""
-
-    @model_validator(mode="after")
-    def validate_file_existence(self) -> "AppSettings":
-        """Validate existence of all configured model files."""
-        # STT
-        if self.stt.model_path and not Path(self.stt.model_path).exists():
-            # If using faster-whisper, model_path can be a directory name if downloaded
-            # or a huggingface ID. If it's a local path, it must exist.
-            # We assume it's a local path if it looks like one.
-            p = Path(self.stt.model_path)
-            if p.is_absolute() or str(self.stt.model_path).startswith("models/"):
-                if not p.exists():
-                    raise ValueError(f"STT Model not found: {self.stt.model_path}")
-
-        # LLM
-        if self.llm.model_path and not Path(self.llm.model_path).exists():
-            raise ValueError(f"LLM Model not found: {self.llm.model_path}")
-
-        # TTS (Default)
-        if self.tts.model_path and not Path(self.tts.model_path).exists():
-            raise ValueError(f"TTS Model not found: {self.tts.model_path}")
-
-        # TTS (Speaker A)
-        if self.speaker_a_voice and not Path(self.speaker_a_voice).exists():
-            raise ValueError(f"Speaker A Voice not found: {self.speaker_a_voice}")
-
-        # TTS (Speaker B)
-        if self.speaker_b_voice and not Path(self.speaker_b_voice).exists():
-            raise ValueError(f"Speaker B Voice not found: {self.speaker_b_voice}")
-
-        return self
 
     @model_validator(mode="after")
     def validate_speaker_keys(self) -> "AppSettings":

@@ -13,6 +13,7 @@ from app.core.audio.recorder import AudioDeviceError
 from app.core.config import AppSettings, load_settings
 from app.core.input import BaseInput, EvdevInput, GPIOInput, KeyboardInput, Role
 from app.core.logging import setup_logging
+from app.core.startup import StartupVerifier
 from app.services.stt import STTService
 from app.services.llm import LLMService
 from app.services.tts import TTSService
@@ -64,6 +65,11 @@ async def main():
 
         # Log configuration (structured)
         logger.info("Configuration loaded", config=settings.model_dump(mode="json"))
+
+        # 2.1. Verify startup prerequisites
+        verifier = StartupVerifier(settings)
+        _ = verifier.verify_all()
+        logger.info("Startup verification passed")
 
         # 2.5. Validate and resolve audio devices
         logger.info("Validating audio devices...")
