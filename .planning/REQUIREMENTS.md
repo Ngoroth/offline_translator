@@ -32,8 +32,8 @@ Requirements for verification and deployment readiness milestone. Each maps to r
 
 ### Error Handling
 
-- [ ] **ERRO-01**: VAD errors are logged (not silently swallowed)
-- [ ] **ERRO-02**: Pipeline errors include actionable context
+- [x] **ERRO-01**: VAD errors are logged (not silently swallowed)
+- [x] **ERRO-02**: Pipeline errors include actionable context
 - [ ] **ERRO-03**: GPIO active_low configuration is actually used (fix hardcoding)
 
 ### Deployment
@@ -91,8 +91,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VERF-04 | Phase 3 | Complete |
 | VERF-05 | Phase 3 | Pending |
 | VERF-06 | Phase 3 | Pending |
-| ERRO-01 | Phase 3 | Pending |
-| ERRO-02 | Phase 3 | Pending |
+| ERRO-01 | Phase 3 | Complete |
+| ERRO-02 | Phase 3 | Complete |
 | ERRO-03 | Phase 3 | Pending |
 | DEPL-01 | Phase 4 | Pending |
 | DEPL-02 | Phase 4 | Pending |
