@@ -1,5 +1,6 @@
 import webrtcvad
 import numpy as np
+from loguru import logger
 
 
 class VADService:
@@ -41,12 +42,8 @@ class VADService:
             try:
                 if self.vad.is_speech(chunk, self.sample_rate):
                     has_speech = True
-            except Exception:
-                # Log error but don't crash, yet don't swallow silently
-                # Since we are in a utility, we print or raise.
-                # Ideally use logging, but we need to import it.
-                # For now, let's allow continuing but we fixed the primary cause (frame size)
-                pass
+            except Exception as e:
+                logger.error(f"VAD is_speech error: {e}")
 
         return has_speech
 
