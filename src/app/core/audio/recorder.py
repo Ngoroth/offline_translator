@@ -1,9 +1,24 @@
 import asyncio
 import subprocess
+
 import numpy as np
 import threading
 from loguru import logger
 from numpy.typing import NDArray
+
+
+class AudioDeviceError(Exception):
+    """Exception raised for audio device errors with actionable suggestions."""
+
+    message: str
+    device: str | int | None
+    suggestion: str
+
+    def __init__(self, message: str, device: str | int | None, suggestion: str) -> None:
+        self.message = message
+        self.device = device
+        self.suggestion = suggestion
+        super().__init__(f"{message} (device: {device}). {suggestion}")
 
 
 class AudioRecorder:
@@ -39,7 +54,6 @@ class AudioRecorder:
             return
 
         self.buffer = []
-        # Clear queue
         while not self._queue.empty():
             try:
                 _ = self._queue.get_nowait()
@@ -48,18 +62,8 @@ class AudioRecorder:
 
         self.recording = True
 
-        # Determine device string
-        # If device_index is "hw:2,0" or "plughw:2,0", use it.
-        # If it's an int (from portaudio index), we might need to convert,
-        # but for now we assume config provides the ALSA string directly.
         device = str(self.device_index) if self.device_index else "default"
 
-        # Construct arecord command
-        # -D <device> : Select PCM by name
-        # -f S16_LE   : Signed 16 bit Little Endian (Standard)
-        # -r <rate>   : Target sample rate (arecord/ALSA handles conversion if plughw is used)
-        # -c 1        : Mono
-        # -t raw      : Raw PCM output (no WAV header)
         cmd = [
             "arecord",
             "-D",
@@ -72,8 +76,6 @@ class AudioRecorder:
             "1",
             "-t",
             "raw",
-            # "-" means stdout, but it's implicit when not specifying file?
-            # arecord usually writes to stdout if filename is '-'
             "-",
         ]
 
@@ -84,16 +86,38 @@ class AudioRecorder:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                bufsize=16384,  # Reasonable buffer size
+                bufsize=16384,
             )
 
-            # Start reading thread
+            if self.process.poll() is not None:
+                stderr = self.process.stderr.read() if self.process.stderr else b""
+                raise AudioDeviceError(
+                    message="arecord process exited immediately",
+                    device=device,
+                    suggestion=f"Check if device '{device}' exists. Install alsa-utils if missing. Error: {stderr.decode(errors='ignore')}",
+                )
+
             self._read_thread = threading.Thread(target=self._read_stdout)
             self._read_thread.start()
 
-        except Exception as e:
-            logger.error(f"Failed to start arecord: {e}")
+        except FileNotFoundError:
             self.recording = False
+            raise AudioDeviceError(
+                message="arecord command not found",
+                device=device,
+                suggestion="Install alsa-utils: 'sudo apt install alsa-utils' (Linux/RPi) or use Windows audio backend",
+            ) from None
+        except AudioDeviceError:
+            self.recording = False
+            raise
+        except Exception as e:
+            self.recording = False
+            logger.error(f"Failed to start arecord: {e}")
+            raise AudioDeviceError(
+                message=f"Failed to start arecord: {e}",
+                device=device,
+                suggestion="Check device availability and permissions",
+            ) from e
 
     def stop(self) -> NDArray[np.float32]:
         self.recording = False
@@ -121,11 +145,10 @@ class AudioRecorder:
         return data
 
     def _read_stdout(self) -> None:
-        """Background thread to read from arecord stdout."""
         if not self.process or not self.process.stdout:
             return
 
-        chunk_size = 4096 * 2  # 4096 samples * 2 bytes (16-bit)
+        chunk_size = 4096 * 2
 
         while self.recording and self.process.poll() is None:
             try:
@@ -133,11 +156,7 @@ class AudioRecorder:
                 if not raw_bytes:
                     break
 
-                # Convert raw S16_LE bytes to float32
-                # 1. From buffer to int16 array
                 int16_data = np.frombuffer(raw_bytes, dtype=np.int16)
-
-                # 2. Convert to float32 and normalize to [-1.0, 1.0]
                 float_data = int16_data.astype(np.float32) / 32768.0
 
                 if self.recording:

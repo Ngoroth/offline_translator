@@ -3,6 +3,13 @@ import asyncio
 from loguru import logger
 
 from app.core.audio import AudioPlayer, AudioRecorder
+from app.core.audio.devices import (
+    get_default_input_device,
+    get_default_output_device,
+    list_audio_devices,
+    resolve_device,
+)
+from app.core.audio.recorder import AudioDeviceError
 from app.core.config import AppSettings, load_settings
 from app.core.input import BaseInput, EvdevInput, GPIOInput, KeyboardInput, Role
 from app.core.logging import setup_logging
@@ -58,6 +65,44 @@ async def main():
         # Log configuration (structured)
         logger.info("Configuration loaded", config=settings.model_dump(mode="json"))
 
+        # 2.5. Validate and resolve audio devices
+        logger.info("Validating audio devices...")
+
+        devices = list_audio_devices()
+        logger.info(f"Found {len(devices)} audio devices")
+        for dev in devices:
+            logger.debug(f"  [{dev.index}] {dev.name} (in={dev.is_input}, out={dev.is_output})")
+
+        input_device = resolve_device(
+            settings.audio.input_device or settings.audio.input_device_index,
+            is_input=True,
+        )
+        if input_device is None:
+            default_input = get_default_input_device()
+            if default_input is None:
+                raise AudioDeviceError(
+                    message="No input audio device available",
+                    device=None,
+                    suggestion="Connect a microphone and restart the application",
+                )
+            input_device = default_input.index
+        logger.info(f"Input device resolved: {input_device}")
+
+        output_device = resolve_device(
+            settings.audio.output_device or settings.audio.output_device_index,
+            is_input=False,
+        )
+        if output_device is None:
+            default_output = get_default_output_device()
+            if default_output is None:
+                raise AudioDeviceError(
+                    message="No output audio device available",
+                    device=None,
+                    suggestion="Connect speakers/headphones and restart the application",
+                )
+            output_device = default_output.index
+        logger.info(f"Output device resolved: {output_device}")
+
         # 3. Initialize Hardware
         logger.info("Initializing hardware...")
 
@@ -66,14 +111,13 @@ async def main():
         input_handler.start()
 
         # Audio
-        # AudioRecorder supports both string (ALSA) and int (portaudio) device identifiers
         recorder = AudioRecorder(
             sample_rate=settings.audio.sample_rate,
-            device_index=settings.audio.input_device or settings.audio.input_device_index,
+            device_index=input_device,
         )
-        # AudioPlayer uses sounddevice which requires integer device index
         player = AudioPlayer(
-            sample_rate=settings.audio.sample_rate, device_index=settings.audio.output_device_index
+            sample_rate=settings.audio.sample_rate,
+            device_index=output_device,
         )
 
         # 4. Initialize AI Services

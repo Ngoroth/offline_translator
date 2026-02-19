@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 import numpy as np
 from app.core.audio import AudioRecorder, AudioPlayer
+from app.core.audio.recorder import AudioDeviceError
 
 
 @pytest.mark.asyncio
@@ -157,3 +158,48 @@ def test_audio_player_play(
     # Test stop
     player.stop()
     _ = mock_stop.assert_called_once()
+
+
+class TestAudioDeviceError:
+    def test_audio_device_error_raised_on_arecord_not_found(self) -> None:
+        with patch("app.core.audio.recorder.subprocess.Popen") as mock_popen:
+            mock_popen.side_effect = FileNotFoundError("arecord not found")
+
+            recorder = AudioRecorder(sample_rate=16000)
+
+            with pytest.raises(AudioDeviceError) as exc_info:
+                recorder.start()
+
+            assert "arecord command not found" in str(exc_info.value)
+            assert (
+                exc_info.value.suggestion
+                == "Install alsa-utils: 'sudo apt install alsa-utils' (Linux/RPi) or use Windows audio backend"
+            )
+
+    def test_audio_device_error_raised_on_process_exit(self) -> None:
+        with patch("app.core.audio.recorder.subprocess.Popen") as mock_popen:
+            mock_process: Any = MagicMock()
+            mock_process.poll.return_value = 1
+            mock_process.stderr = MagicMock()
+            mock_process.stderr.read.return_value = b"error: device not found"
+            mock_popen.return_value = mock_process
+
+            recorder = AudioRecorder(sample_rate=16000, device_index="test_device")
+
+            with pytest.raises(AudioDeviceError) as exc_info:
+                recorder.start()
+
+            assert "arecord process exited immediately" in str(exc_info.value)
+
+    def test_audio_device_error_attributes(self) -> None:
+        error = AudioDeviceError(
+            message="Test error",
+            device="test_device",
+            suggestion="Test suggestion",
+        )
+
+        assert error.message == "Test error"
+        assert error.device == "test_device"
+        assert error.suggestion == "Test suggestion"
+        assert "Test error" in str(error)
+        assert "test_device" in str(error)
