@@ -39,8 +39,8 @@ Requirements for verification and deployment readiness milestone. Each maps to r
 ### Deployment
 
 - [ ] **DEPL-01**: System runs thermal stress test (10-minute sustained load)
-- [ ] **DEPL-02**: System validates GPIO button input on target hardware
-- [ ] **DEPL-03**: System validates audio I/O on target hardware
+- [x] **DEPL-02**: System validates GPIO button input on target hardware
+- [x] **DEPL-03**: System validates audio I/O on target hardware
 
 ## v2 Requirements
 
@@ -95,8 +95,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ERRO-02 | Phase 3 | Complete |
 | ERRO-03 | Phase 3 | Pending |
 | DEPL-01 | Phase 4 | Pending |
-| DEPL-02 | Phase 4 | Pending |
-| DEPL-03 | Phase 4 | Pending |
+| DEPL-02 | Phase 4 | Complete |
+| DEPL-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 20 total
