@@ -12,7 +12,7 @@ This roadmap guides the verification and deployment readiness of a mature offlin
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Dependency Updates** - Update llama-cpp-python, piper-tts, pytest-asyncio with verified compatibility
+- [x] **Phase 1: Dependency Updates** - Update llama-cpp-python, piper-tts, pytest-asyncio with verified compatibility ✓
 - [ ] **Phase 2: Audio Device Discovery** - Auto-detect audio devices by name for RPi deployment reliability
 - [ ] **Phase 3: Startup Verification** - Comprehensive validation before user interaction begins
 - [ ] **Phase 4: Deployment Verification** - Validate on target Raspberry Pi hardware
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Update llama-cpp-python, piper-tts, pytest-asyncio with test verification
+- [x] 01-01-PLAN.md — Update llama-cpp-python, piper-tts, pytest-asyncio with test verification ✓
 
 ### Phase 2: Audio Device Discovery
 **Goal**: Reliable audio device detection that survives reboots and device changes
@@ -73,7 +73,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dependency Updates | 0/1 | Not started | - |
+| 1. Dependency Updates | 1/1 | Complete | 2026-02-18 |
 | 2. Audio Device Discovery | 0/TBD | Not started | - |
 | 3. Startup Verification | 0/TBD | Not started | - |
 | 4. Deployment Verification | 0/TBD | Not started | - |
