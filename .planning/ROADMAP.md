@@ -51,6 +51,7 @@ Plans:
 **Goal**: System validates all prerequisites before user interaction begins
 **Depends on**: Phase 2
 **Requirements**: VERF-01, VERF-02, VERF-03, VERF-04, VERF-05, VERF-06, ERRO-01, ERRO-02, ERRO-03
+**In Scope**: VERF-01, VERF-02, VERF-03, VERF-04, ERRO-01, ERRO-02 (VERF-05, VERF-06, ERRO-03 deferred)
 **Success Criteria** (what must be TRUE):
   1. User sees clear error if model files are missing at startup
   2. User sees clear error if audio device is unavailable at startup
@@ -58,7 +59,11 @@ Plans:
   4. System warns if insufficient RAM or CPU resources
   5. VAD errors appear in logs with actionable context
   6. GPIO active_low configuration actually affects button behavior
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Create StartupVerifier class with model and audio validation
+- [ ] 03-02-PLAN.md — Enhance error logging in VAD and pipeline workers
 
 ### Phase 4: Deployment Verification
 **Goal**: Verified operation on target Raspberry Pi hardware
@@ -79,7 +84,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Dependency Updates | 1/1 | Complete | 2026-02-18 |
 | 2. Audio Device Discovery | 2/2 | Complete | 2026-02-18 |
-| 3. Startup Verification | 0/TBD | Not started | - |
+| 3. Startup Verification | 0/2 | Not started | - |
 | 4. Deployment Verification | 0/TBD | Not started | - |
 
 ---
