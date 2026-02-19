@@ -1,14 +1,16 @@
-import pytest
-from pydantic import ValidationError
 from app.core.config import TTSSettings
 
 
-def test_tts_settings_validation_file_not_found():
-    """Test that model_path validation fails if file does not exist."""
-    with pytest.raises(ValidationError) as excinfo:
-        TTSSettings(model_path="non_existent_model.onnx")
+def test_tts_settings_accepts_nonexistent_path():
+    """Test that model_path accepts non-existent files.
 
-    assert "not found" in str(excinfo.value)
+    File existence validation is now handled by StartupVerifier,
+    not by TTSSettings. This allows config loading to succeed even
+    when models haven't been downloaded yet.
+    """
+    # Should NOT raise ValidationError - validation deferred to StartupVerifier
+    settings = TTSSettings(model_path="non_existent_model.onnx")
+    assert settings.model_path == "non_existent_model.onnx"
 
 
 def test_tts_settings_sample_rate_field():

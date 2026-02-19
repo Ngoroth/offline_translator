@@ -15,7 +15,7 @@ def test_load_real_config():
 
     # Basic sanity checks on the loaded config
     assert settings.platform in ["auto", "windows", "linux", "rpi"]
-    assert settings.input_mode in ["keyboard", "gpio"]
+    assert settings.input_mode in ["keyboard", "gpio", "evdev"]
 
     # Check paths
     assert settings.stt.model_path, "STT model path is empty"
