@@ -68,12 +68,14 @@ Plans:
 ### Phase 4: Deployment Verification
 **Goal**: Verified operation on target Raspberry Pi hardware
 **Depends on**: Phase 3
-**Requirements**: DEPL-01, DEPL-02, DEPL-03
+**Requirements**: DEPL-02, DEPL-03 (DEPL-01 removed from scope)
 **Success Criteria** (what must be TRUE):
-  1. System runs 10-minute sustained translation load without thermal throttling
-  2. GPIO button triggers PTT reliably on target hardware
-  3. Audio input and output work correctly on target hardware
-**Plans**: TBD
+  1. Numpad button triggers PTT reliably on target hardware via evdev
+  2. Audio input and output work correctly on target hardware
+**Plans**: 1 plan
+
+Plans:
+- [ ] 04-01-PLAN.md — Live hardware verification (pre-flight, audio I/O, numpad PTT)
 
 ## Progress
 
@@ -85,7 +87,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Dependency Updates | 1/1 | Complete | 2026-02-18 |
 | 2. Audio Device Discovery | 2/2 | Complete | 2026-02-18 |
 | 3. Startup Verification | 2/2 | Complete   | 2026-02-19 |
-| 4. Deployment Verification | 0/TBD | Not started | - |
+| 4. Deployment Verification | 0/1 | Ready | - |
 
 ---
 *Roadmap created: 2026-02-18*
