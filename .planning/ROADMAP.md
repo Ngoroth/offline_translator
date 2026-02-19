@@ -41,7 +41,11 @@ Plans:
   2. System automatically discovers available audio devices on startup
   3. User sees clear error message when audio device is disconnected during runtime
   4. Configuration accepts device name strings (e.g., "plughw:1,0")
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Create device discovery module with list/resolve functions
+- [ ] 02-02-PLAN.md — Integrate device resolution with error handling
 
 ### Phase 3: Startup Verification
 **Goal**: System validates all prerequisites before user interaction begins
