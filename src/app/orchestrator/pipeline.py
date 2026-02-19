@@ -328,21 +328,21 @@ class TranslationPipeline:
                     )
                     if text:
                         logger.info(f"STT Transcribed: {text}")
-                        from typing import cast
 
-                        llm_payload = cast(
-                            TextPayload,
-                            {
-                                "text": text,
-                                "language": self.session.source_lang,
-                                "session_id": session_id,
-                            },
-                        )
+                        llm_payload: TextPayload = {
+                            "text": text,
+                            "language": self.session.source_lang,
+                            "session_id": session_id,
+                        }
                         logger.debug(f"Sending to LLM queue: {llm_payload}")
                         await self.llm_queue.put(llm_payload)
                         logger.debug("Sent to LLM queue successfully")
                 except Exception as e:
-                    logger.error(f"STT Error: {e}")
+                    audio_data = payload.get("audio")
+                    session_id = payload.get("session_id", "unknown")
+                    logger.error(
+                        f"STT Error [session={session_id}, audio_len={len(audio_data) if audio_data is not None else 0}]: {e}"
+                    )
 
         except asyncio.CancelledError:
             logger.debug("STT Worker cancelled")
@@ -385,7 +385,12 @@ class TranslationPipeline:
                             }
                         )
                 except Exception as e:
-                    logger.error(f"LLM Error: {e}")
+                    session_id = payload.get("session_id", "unknown")
+                    source_lang = self.session.source_lang if self.session else "unknown"
+                    target_lang = self.session.target_lang if self.session else "unknown"
+                    logger.error(
+                        f"LLM Error [session={session_id}, {source_lang}->{target_lang}]: {e}"
+                    )
 
         except asyncio.CancelledError:
             logger.debug("LLM Worker cancelled")
@@ -415,7 +420,9 @@ class TranslationPipeline:
                             break
                         await self.player_queue.put(chunk)
                 except Exception as e:
-                    logger.error(f"TTS Error: {e}")
+                    session_id = payload.get("session_id", "unknown")
+                    voice = self.session.tts_voice if self.session else "unknown"
+                    logger.error(f"TTS Error [session={session_id}, voice={voice}]: {e}")
 
         except asyncio.CancelledError:
             logger.debug("TTS Worker cancelled")
@@ -440,7 +447,8 @@ class TranslationPipeline:
                     data = np.frombuffer(chunk, dtype=np.float32)
                     await asyncio.to_thread(self.player.play, data)
                 except Exception as e:
-                    logger.error(f"Player Error: {e}")
+                    session_id = self.session.session_id if self.session else "unknown"
+                    logger.error(f"Player Error [session={session_id}]: {e}")
 
         except asyncio.CancelledError:
             logger.debug("Player Worker cancelled")
