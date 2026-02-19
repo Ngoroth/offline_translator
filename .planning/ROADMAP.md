@@ -27,7 +27,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. All 128 existing tests pass after dependency updates
   2. Pipeline runs without errors with updated packages
   3. No new linting or type checking errors introduced
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Update llama-cpp-python, piper-tts, pytest-asyncio with test verification
 
 ### Phase 2: Audio Device Discovery
 **Goal**: Reliable audio device detection that survives reboots and device changes
@@ -70,7 +73,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dependency Updates | 0/TBD | Not started | - |
+| 1. Dependency Updates | 0/1 | Not started | - |
 | 2. Audio Device Discovery | 0/TBD | Not started | - |
 | 3. Startup Verification | 0/TBD | Not started | - |
 | 4. Deployment Verification | 0/TBD | Not started | - |
