@@ -62,9 +62,10 @@ Recent decisions affecting current work:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Remove GPIO references, update docs for RPi4 target device | 2026-02-21 | 9737e63 | [1-remove-gpio-references-update-docs-for-r](./quick/1-remove-gpio-references-update-docs-for-r/) |
+| 2 | Clean GPIO references from planning docs, keep code | 2026-02-21 | bd96726 | [2-clean-gpio-references-from-planning-docs](./quick/2-clean-gpio-references-from-planning-docs/) |
 
 ## Session Continuity
 
-Last session: 2026-02-21 (Quick Task 1)
-Last activity: 2026-02-21 - Completed quick task 1: Remove GPIO references, update docs for RPi4 target device
+Last session: 2026-02-21 (Quick Task 2)
+Last activity: 2026-02-21 - Completed quick task 2: Clean GPIO references from planning docs, keep code
 Resume file: None
