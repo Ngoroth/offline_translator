@@ -62,7 +62,7 @@ Each task was committed atomically:
 2. **Task 2: Add regression tests for override and invalid profile paths** - `9b0c39c` (test)
 3. **Task 3: Enforce local quality gate for changed code** - `4474e22` (chore)
 
-**Plan metadata:** `TBD` (docs: complete plan)
+**Plan metadata:** `797b78a` (docs)
 
 ## Files Created/Modified
 - `src/app/core/config.py` - Added runtime profile override selection and invalid-profile validation path.
