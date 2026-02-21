@@ -131,7 +131,9 @@ class RootConfig(BaseModel):
     profiles: dict[str, dict[str, object]]
 
 
-def load_settings(config_path: str | Path = "config.yaml") -> AppSettings:
+def load_settings(
+    config_path: str | Path = "config.yaml", profile_override: str | None = None
+) -> AppSettings:
     """
     Load configuration from a YAML file, select the active profile,
     and validate it using AppSettings.
@@ -155,16 +157,19 @@ def load_settings(config_path: str | Path = "config.yaml") -> AppSettings:
     except ValidationError as e:
         raise ValueError(f"Invalid root configuration structure: {e}") from e
 
-    if root.current_profile not in root.profiles:
+    active_profile = profile_override if profile_override is not None else root.current_profile
+
+    if active_profile not in root.profiles:
+        available_profiles = sorted(root.profiles.keys())
         raise ValueError(
-            f"Active profile '{root.current_profile}' not found in 'profiles'. "
-            + f"Available: {list(root.profiles.keys())}"
+            f"Profile '{active_profile}' not found in 'profiles'. "
+            + f"Available: {available_profiles}"
         )
 
-    profile_data = root.profiles[root.current_profile]
+    profile_data = root.profiles[active_profile]
 
     try:
         # Use model_validate to create AppSettings from the dict
         return AppSettings.model_validate(profile_data)
     except ValidationError as e:
-        raise ValueError(f"Invalid configuration for profile '{root.current_profile}': {e}") from e
+        raise ValueError(f"Invalid configuration for profile '{active_profile}': {e}") from e
