@@ -166,8 +166,8 @@ class BaseInput(ABC):
     async def wait_for_release(self, role: Role) -> None: ...
 
 # Windows: KeyboardInput (pynput)
-# Linux headless: EvdevInput (evdev)
-# RPi: GPIOInput (lgpio)
+# Linux headless: EvdevInput (evdev) - PRIMARY on target device
+# RPi: GPIOInput (lgpio) - available but not used on target
 ```
 
 ### Pattern 4: Session-Context Injection
@@ -421,11 +421,12 @@ def test_input_selection_rpi(monkeypatch):
 
 ### Phase 3: Target Device Verification (Raspberry Pi)
 
-1. **GPIO Hardware Test**: Physical button response
-2. **Audio Hardware Test**: Speaker/mic functionality
-3. **Model Loading Test**: Verify models load on ARM
-4. **Latency Test**: Measure end-to-end timing
-5. **Thermal Test**: Monitor temperature under load
+1. **Evdev Input Test**: USB numpad PTT functionality (PRIMARY input method)
+2. **GPIO Hardware Test**: Physical button response (OPTIONAL - not used on target)
+3. **Audio Hardware Test**: Speaker/mic functionality
+4. **Model Loading Test**: Verify models load on ARM
+5. **Latency Test**: Measure end-to-end timing
+6. **Thermal Test**: Monitor temperature under load
 
 ```bash
 # On-device verification script
@@ -551,10 +552,11 @@ Based on the architecture, recommended verification order:
 3. Latency benchmarking
 
 ### Phase 5: On-Device Verification
-1. GPIO input test
-2. Audio hardware test
-3. ARM model loading
-4. Thermal monitoring
+1. Evdev input test (PRIMARY - USB numpad PTT)
+2. GPIO input test (OPTIONAL - not used on target)
+3. Audio hardware test
+4. ARM model loading
+5. Thermal monitoring
 
 ---
 
