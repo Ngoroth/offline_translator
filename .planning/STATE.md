@@ -47,7 +47,7 @@ Recent decisions affecting current work:
 - **Roadmap:** v1.0 Verification Readiness shipped. New roadmap starting for v1.1 Gap Closure.
 - **Startup verification:** File validation moved from pydantic to StartupVerifier for clean exit codes and plain text output.
 - **Deferred validations:** Model loading and RAM/CPU checking were deferred during v1.0 and remain as technical debt.
-- **Hardcoded GPIO Config:** `active_low` boolean is exported but ignored. Needs fix in next milestone.
+- **Hardcoded GPIO Config:** `active_low` boolean is exported but ignored. Needs fix in next milestone (low priority - GPIO not used on target device, which uses USB numpad via evdev).
 
 ### Pending Todos
 
@@ -55,7 +55,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- Deferred system resource checks and GPIO config hardcoding need to be addressed in the next phase.
+- Deferred system resource checks and GPIO config hardcoding need to be addressed in the next phase (GPIO fix is low priority since target device uses USB numpad via evdev).
 
 ### Quick Tasks Completed
 
