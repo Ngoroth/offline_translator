@@ -54,5 +54,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. CLI Profile Flag | 2/2 | Complete   | 2026-02-21 |
+| 1. CLI Profile Flag | 2/2 | Complete    | 2026-02-21 |
 | 2. Deploy to Pi | 0/TBD | Not started | - |
