@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 from app.core.audio import AudioRecorder, AudioPlayer
 from app.core.audio.recorder import AudioDeviceError
+from app.core.audio.recorder_sounddevice import SoundDeviceAudioRecorder
 
 
 @pytest.mark.asyncio
@@ -203,3 +204,16 @@ class TestAudioDeviceError:
         assert error.suggestion == "Test suggestion"
         assert "Test error" in str(error)
         assert "test_device" in str(error)
+
+
+@patch("app.core.audio.recorder_sounddevice.sd.InputStream")
+def test_sounddevice_recorder_wraps_startup_errors(mock_input_stream: MagicMock) -> None:
+    mock_input_stream.side_effect = RuntimeError("PortAudioError: invalid device")
+
+    recorder = SoundDeviceAudioRecorder(sample_rate=16000, device_index=7)
+
+    with pytest.raises(AudioDeviceError) as exc_info:
+        recorder.start()
+
+    assert "Failed to start sounddevice input stream" in str(exc_info.value)
+    assert "microphone permissions" in exc_info.value.suggestion

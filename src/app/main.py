@@ -8,7 +8,7 @@ import yaml
 
 from loguru import logger
 
-from app.core.audio import AudioPlayer
+from app.core.audio import AudioPlayer, AudioRecorder
 from app.core.audio.devices import (
     get_default_input_device,
     get_default_output_device,
@@ -140,9 +140,12 @@ async def main(profile_override: str | None = None) -> int:
 
         # Audio
         recorder_factory = select_recorder_factory(settings.platform)
-        recorder = recorder_factory(
-            sample_rate=settings.audio.sample_rate,
-            device_index=input_device,
+        recorder = cast(
+            AudioRecorder,
+            recorder_factory(
+                sample_rate=settings.audio.sample_rate,
+                device_index=input_device,
+            ),
         )
         player = AudioPlayer(
             sample_rate=settings.audio.sample_rate,

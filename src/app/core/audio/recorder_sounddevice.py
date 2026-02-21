@@ -15,7 +15,7 @@ class SoundDeviceAudioRecorder:
     buffer: list[NDArray[np.float32]]
     _queue: asyncio.Queue[NDArray[np.float32]]
     recording: bool
-    _loop: asyncio.AbstractEventLoop
+    _loop: asyncio.AbstractEventLoop | None
 
     def __init__(self, sample_rate: int = 16000, device_index: int | str | None = None):
         self.sample_rate = sample_rate
@@ -27,7 +27,7 @@ class SoundDeviceAudioRecorder:
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
-            self._loop = asyncio.get_event_loop()
+            self._loop = None
 
     def start(self) -> None:
         if self.recording:
@@ -40,6 +40,11 @@ class SoundDeviceAudioRecorder:
             except asyncio.QueueEmpty:
                 break
 
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = None
+
         def callback(
             indata: NDArray[np.float32],
             _frames: int,
@@ -51,7 +56,7 @@ class SoundDeviceAudioRecorder:
 
             chunk = np.copy(indata[:, 0]).astype(np.float32)
             self.buffer.append(chunk)
-            if self.recording:
+            if self.recording and self._loop is not None and self._loop.is_running():
                 _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, chunk)
 
         self.recording = True
@@ -70,7 +75,11 @@ class SoundDeviceAudioRecorder:
             self.recording = False
             self.stream = None
             error_type = type(exc).__name__
-            if "PortAudio" in error_type or "sounddevice" in str(type(exc).__module__):
+            if (
+                "PortAudio" in error_type
+                or "PortAudio" in str(exc)
+                or "sounddevice" in str(type(exc).__module__)
+            ):
                 raise AudioDeviceError(
                     message=f"Failed to start sounddevice input stream: {exc}",
                     device=device,
