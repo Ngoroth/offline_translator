@@ -1,6 +1,9 @@
 import asyncio
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
+
+import yaml
 
 from loguru import logger
 
@@ -76,7 +79,9 @@ async def main(profile_override: str | None = None):
     try:
         # 2. Load Config
         settings = load_settings(profile_override=profile_override)
-        logger.info(f"Profile: {settings.platform} ({settings.input_mode})")
+        active_profile = profile_override or _get_current_profile_key()
+        logger.info(f"Profile: {active_profile}")
+        logger.info(f"Platform: {settings.platform} ({settings.input_mode})")
 
         # Log configuration (structured)
         logger.info("Configuration loaded", config=settings.model_dump(mode="json"))
@@ -180,13 +185,37 @@ async def main(profile_override: str | None = None):
 
         # 6. Run Orchestrator
         await orchestrator.run()
+        return 0
 
     except KeyboardInterrupt:
         logger.info("Shutdown requested by user.")
+        return 130
     except Exception as e:
         logger.exception(f"Fatal error during execution: {e}")
+        return 1
+
+
+def _get_current_profile_key(config_path: str | Path = "config.yaml") -> str:
+    path = Path(config_path)
+    if not path.exists():
+        return "<unknown>"
+
+    with open(path, "r", encoding="utf-8") as config_file:
+        data = yaml.safe_load(config_file)
+
+    if not isinstance(data, dict):
+        return "<unknown>"
+
+    current_profile = data.get("current_profile")
+    if isinstance(current_profile, str):
+        return current_profile
+    return "<unknown>"
+
+
+def cli(argv: Sequence[str] | None = None) -> int:
+    cli_args = parse_cli_args(argv)
+    return asyncio.run(main(profile_override=cli_args.profile))
 
 
 if __name__ == "__main__":
-    cli_args = parse_cli_args()
-    asyncio.run(main(profile_override=cli_args.profile))
+    raise SystemExit(cli())
