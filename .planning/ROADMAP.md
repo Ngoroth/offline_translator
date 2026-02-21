@@ -12,7 +12,7 @@ Enable seamless switching between development (Windows) and production (Raspberr
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: CLI Profile Flag** - Add `--profile` flag to select config without editing files
+- [x] **Phase 1: CLI Profile Flag** - Add `--profile` flag to select config without editing files (completed 2026-02-21)
 - [ ] **Phase 2: Deploy to Pi** - One-command deployment to Raspberry Pi via rsync
 
 ## Phase Details
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md - Add profile override resolution/validation in config loader with tests
-- [ ] 01-02-PLAN.md - Add CLI --profile parsing and main entrypoint wiring with tests
+- [x] 01-02-PLAN.md - Add CLI --profile parsing and main entrypoint wiring with tests
 
 ### Phase 2: Deploy to Pi
 **Goal**: User can deploy the entire codebase to Raspberry Pi with a single command, enabling rapid iteration cycles.
@@ -54,5 +54,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. CLI Profile Flag | 1/2 | In Progress | - |
+| 1. CLI Profile Flag | 2/2 | Complete   | 2026-02-21 |
 | 2. Deploy to Pi | 0/TBD | Not started | - |
