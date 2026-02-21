@@ -8,7 +8,7 @@ import yaml
 
 from loguru import logger
 
-from app.core.audio import AudioPlayer, AudioRecorder
+from app.core.audio import AudioPlayer
 from app.core.audio.devices import (
     get_default_input_device,
     get_default_output_device,
@@ -16,6 +16,7 @@ from app.core.audio.devices import (
     resolve_device,
 )
 from app.core.audio.recorder import AudioDeviceError
+from app.core.audio.recorder_selector import select_recorder_factory
 from app.core.config import AppSettings, load_settings
 from app.core.input import BaseInput, EvdevInput, GPIOInput, KeyboardInput, Role
 from app.core.logging import setup_logging
@@ -138,7 +139,8 @@ async def main(profile_override: str | None = None) -> int:
         input_handler.start()
 
         # Audio
-        recorder = AudioRecorder(
+        recorder_factory = select_recorder_factory(settings.platform)
+        recorder = recorder_factory(
             sample_rate=settings.audio.sample_rate,
             device_index=input_device,
         )
