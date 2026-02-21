@@ -2,6 +2,7 @@ import asyncio
 import argparse
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import yaml
 
@@ -31,7 +32,7 @@ def parse_cli_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         allow_abbrev=False,
         description="Run the offline translator application.",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--profile",
         metavar="NAME",
         help="Use profile NAME from config.yaml for this run.",
@@ -71,7 +72,7 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
         return KeyboardInput(key_map=key_map_str)
 
 
-async def main(profile_override: str | None = None):
+async def main(profile_override: str | None = None) -> int:
     # 1. Setup Logging (Must be first for diagnostics)
     setup_logging()
     logger.info("Starting Offline Translator...")
@@ -201,7 +202,7 @@ def _get_current_profile_key(config_path: str | Path = "config.yaml") -> str:
         return "<unknown>"
 
     with open(path, "r", encoding="utf-8") as config_file:
-        data = yaml.safe_load(config_file)
+        data = cast(object, yaml.safe_load(config_file))
 
     if not isinstance(data, dict):
         return "<unknown>"
@@ -214,7 +215,10 @@ def _get_current_profile_key(config_path: str | Path = "config.yaml") -> str:
 
 def cli(argv: Sequence[str] | None = None) -> int:
     cli_args = parse_cli_args(argv)
-    return asyncio.run(main(profile_override=cli_args.profile))
+    profile_override = getattr(cli_args, "profile", None)
+    if profile_override is not None and not isinstance(profile_override, str):
+        raise TypeError("Parsed CLI profile must be a string or None")
+    return asyncio.run(main(profile_override=profile_override))
 
 
 if __name__ == "__main__":
