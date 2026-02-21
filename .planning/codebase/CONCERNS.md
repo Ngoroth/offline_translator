@@ -9,6 +9,7 @@
 - **Files:** `src/app/core/input.py` (line 377)
 - **Impact:** Cannot use active-high GPIO configurations without code modification
 - **Fix approach:** Make `active_low` configurable via `GPIOSettings` (field exists but is unused)
+- **Priority:** Low - GPIO not used on target device (uses USB numpad via evdev)
 
 ### Legacy Input Settings
 - **Issue:** `InputSettings.ptt_a` and `ptt_b` are marked for removal but still exist
@@ -99,6 +100,7 @@
 ### Multi-Input Handler State Management
 - **Files:** `src/app/core/input.py`
 - **Why fragile:** Three different input implementations (Keyboard, Evdev, GPIO) with slightly different async patterns
+- **Note:** EvdevInput is the production input method on target device; GPIO is available but not used
 - **Safe modification:** Ensure all handlers implement `BaseInput` contract exactly
 - **Test coverage:** Unit tests exist but don't cover all edge cases
 
@@ -152,6 +154,7 @@
 ### `lgpio` (Raspberry Pi GPIO)
 - **Risk:** Linux-only, specific to RPi hardware
 - **Impact:** Cannot run GPIO mode on other platforms
+- **Mitigation:** GPIO not used on target device (uses USB numpad via evdev)
 - **Migration plan:** Maintain abstraction layer, already done via `BaseInput`
 
 ## Missing Critical Features
@@ -188,7 +191,7 @@
 - **What's not tested:** Actual GPIO hardware interactions
 - **Files:** `src/app/core/input.py` `GPIOInput` class
 - **Risk:** GPIO bugs only caught on actual hardware
-- **Priority:** Low (mock-based unit tests exist)
+- **Priority:** Low (mock-based unit tests exist; GPIO not used on target device which uses USB numpad via evdev)
 
 ### Audio Hardware Edge Cases
 - **What's not tested:** Buffer underruns, device disconnects

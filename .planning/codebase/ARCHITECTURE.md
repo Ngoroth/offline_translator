@@ -9,7 +9,7 @@
 **Key Characteristics:**
 - **Asyncio-based**: Full async/await concurrency model for non-blocking I/O
 - **Producer-Consumer Pipeline**: 4-stage async queue pipeline (VAD → STT → LLM → TTS → Audio)
-- **Hardware Abstraction**: Platform-independent input (Keyboard/Evdev/GPIO) and audio (ALSA/PortAudio)
+- **Hardware Abstraction**: Platform-independent input (Keyboard/Evdev - GPIO available but not used on target) and audio (ALSA/PortAudio)
 - **Session-based State Management**: Cancellable sessions for barge-in support
 - **Cross-platform**: Windows development, Raspberry Pi production deployment
 
@@ -54,7 +54,7 @@
 
 **Translation Pipeline:**
 
-1. **Input Trigger**: User presses PTT button (Keyboard/GPIO/Evdev)
+1. **Input Trigger**: User presses PTT button (Keyboard/Evdev - GPIO available but not used on target)
 2. **Session Start**: `TranslationPipeline.start_session()` creates session, determines source/target languages
 3. **Audio Capture**: `AudioRecorder` captures via arecord (Pi) or sounddevice (Windows)
 4. **VAD Processing**: `VADService` + `SilenceDetector` monitor for speech/silence
@@ -75,7 +75,7 @@
 - Purpose: Abstract input device interface
 - File: `src/app/core/input.py`
 - Pattern: Abstract Base Class with concrete implementations
-- Implementations: `KeyboardInput` (pynput), `EvdevInput` (evdev), `GPIOInput` (lgpio)
+- Implementations: `KeyboardInput` (pynput), `EvdevInput` (evdev), `GPIOInput` (lgpio - available but not used on target)
 
 **Session:**
 - Purpose: Encapsulate translation transaction state

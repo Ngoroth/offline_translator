@@ -110,17 +110,17 @@
 - Keys: Space (Speaker A), Alt (Speaker B)
 
 **Raspberry Pi (Production):**
-- **Option 1: evdev** - USB numpad without X server
+- **Option 1: evdev** - USB numpad without X server (PRIMARY - used on target device)
   - Device: `/dev/input/event1`
   - Keys: KEY_KP5 (Speaker A), KEY_KP6 (Speaker B)
-- **Option 2: GPIO** - Hardware buttons
+- **Option 2: GPIO** - Hardware buttons (available but not used on target device)
   - Pin 17: Speaker A button
   - Pin 27: Speaker B button
   - Active-low logic with 50ms debounce
 
 **Cross-Platform Abstraction:**
 - `app/core/input.py` - HAL factory pattern for input selection
-- Runtime selection via `input_mode` config: `keyboard`, `evdev`, or `gpio`
+- Runtime selection via `input_mode` config: `keyboard` (dev), `evdev` (production), or `gpio` (available but not used on target)
 
 ## Network Requirements
 

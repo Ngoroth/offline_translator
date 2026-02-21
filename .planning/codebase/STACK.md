@@ -83,8 +83,8 @@
 **Production (Raspberry Pi 5):**
 - Python 3.12.x
 - ALSA audio subsystem
-- Optional: evdev for USB numpad input
-- Optional: GPIO for hardware button input
+- Optional: evdev for USB numpad input (used on target device)
+- Optional: GPIO for hardware button input (available but not used on target)
 - CPU-only inference (GGUF models, ONNX TTS)
 
 **Hardware Requirements:**
