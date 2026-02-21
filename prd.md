@@ -1,20 +1,3 @@
----
-stepsCompleted: ["step-01-init", "step-02-discovery", "step-03-success", "step-04-journeys", "step-05-domain", "step-06-innovation", "step-07-project-type", "step-08-scoping", "step-09-functional", "step-10-nonfunctional", "step-11-polish", "step-12-complete", "step-e-01-discovery", "step-e-02-review"]
-inputDocuments:
-  - _bmad-output/planning-artifacts/product-brief-offline_translator-2026-01-21.md
-  - docs/index.md
-  - docs/project-overview.md
-  - docs/architecture.md
-  - docs/development-guide.md
-  - SCENARIOS.md
-workflowType: 'prd'
-classification:
-  projectType: desktop_cli_embedded
-  domain: communication_translation_general
-  complexity: medium
-  projectContext: brownfield
----
-
 # Product Requirements Document - offline_translator
 
 **Author:** Ngoroth
@@ -28,15 +11,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 
 ## Success Criteria
 
-### User Success
-- **Entity Preservation**: Critical entities (names, numbers, locations) are preserved in >95% of translations.
-- **Context Preservation**: Translation maintains conversation context and logical flow.
-- **Sentiment Alignment**: The sentiment (positive/negative/neutral) of the translation matches the source in >90% of cases.
-- **Seamless Dialogue**: Users can communicate naturally without repetitive "I don't understand" requests.
-- **Continuous Flow**: Dialogue occurs smoothly without forced interruptions or awkward pauses.
-- **Performance Success**: Users can maintain a 2-minute dialogue on everyday topics with zero comprehension issues.
-
-### Business Success (FOSS Goals)
+### Business Success
 - **Community Adoption**: At least one user beyond the author successfully uses the application.
 - **Public Availability**: Code is available on GitHub with comprehensive README and setup instructions.
 - **Extensibility**: Other users can successfully configure their own language pairs via configuration.
@@ -46,62 +21,6 @@ Unlike traditional translation apps that force users to wait through sequential 
 - **Smooth Playback**: Minimal delay between translation readiness and audio playback (target range: 0.3-1.0s).
 - **Session Stability**: Reliable support for one simultaneous session (one dialogue pair).
 - **Test Integrity**: 100% pass rate for the minimum 12 critical tests (unit and integration), aiming for maximum coverage.
-
-## Product Scope
-
-### Phase 1: MVP (Minimum Viable Product)
-**Goal:** Prove that async pipeline + LLM enables near-zero latency offline translation on Windows.
-- **Platform**: Windows with USB Numpad/Keyboard PTT (Space for En→Ru, Alt for Ru→En).
-- **Pipeline**: Async architecture (STT + LLM + TTS concurrently).
-- **Segmentation**: Auto-segmentation with 0.5s pause detection.
-- **Interaction**: Barge-in interruption support using any PTT key.
-- **Abstraction**: Hardware Abstraction Layer (HAL) for future Raspberry Pi support.
-- **Languages**: Single language pair (Russian ↔ English).
-- **Quality**: Minimum 12 unit and integration tests covering the pipeline.
-
-### Phase 2: Growth (Post-MVP)
-- **Hardware**: USB Numpad Integration.
-- **Autonomy**: Standalone Raspberry Pi 4 device (no laptop/PC required).
-- **Portability**: Battery power management (power bank optimization).
-- **Performance**: Maintain ≤ 1.0s latency on Raspberry Pi 4 CPU.
-
-### Phase 3: Vision
-- **Language Expansion**: Support for Ukrainian, Farsi, and multiple concurrent language pairs.
-- **Interface**: Web-based configuration UI.
-- **Intelligence**: Contextual dialogue memory for improved translation accuracy.
-- **Portability**: Mobile versions (Android/iOS).
-
-## User Journeys
-
-### 1. Primary User: Success Path (Andrey)
-**Situation**: Andrey is hiking with English-speaking friends and wants to participate naturally in conversations.
-**Action**: Andrey sets up the system on his laptop, configures the Ru↔En pair, and uses Space/Alt keys to talk.
-**Outcome**: He hears translations instantly, understands jokes, and responds confidently. The dialogue flows continuously without pauses.
-
-### 2. Contributor: Extensibility Path (Maria)
-**Situation**: Maria wants to use the system for German-Italian translation.
-**Action**: She clones the FOSS repo, updates the system configuration with German/Italian models and TTS, and tests the new pair.
-**Outcome**: The system works with the new languages. Maria submits a pull request with her configuration improvements.
-
-### 3. Support: Troubleshooting Path (Error Recovery)
-**Situation**: A user encounters a model loading error while offline.
-**Action**: The user checks logs, identifies the path issue, and runs automated tests to confirm service failure.
-**Outcome**: The user fixes file permissions based on error messages and updates the README with a troubleshooting guide.
-
-### 4. Administrator: Optimization Path (RPi Deployment)
-**Situation**: An admin is preparing a Raspberry Pi 4 for field use.
-**Action**: Switch profile to Raspberry Pi deployment, select optimized STT and LLM models, and configure thresholds for the CPU.
-**Outcome**: The system achieves 0.9s latency on the limited hardware, ensuring autonomy in the field.
-
-### 5. Humanitarian User: Multi-language Support (Oksana)
-**Situation**: Oksana, a volunteer, needs to facilitate communication between Ukrainian and English speakers in a remote camp.
-**Action**: She configures the Uk↔En language pair and sets up the device for dual-speaker interaction.
-**Outcome**: Volunteers and refugees can understand each other's needs clearly, preserving cultural nuance and tone during difficult conversations.
-
-### 6. Specialist User: Domain Accuracy (Alireza)
-**Situation**: Alireza, a doctor, uses the translator to explain medical instructions to an English-speaking colleague in an offline environment.
-**Action**: He uses the system with a high-accuracy LLM profile configured for technical terminology.
-**Outcome**: The translation correctly captures specialized medical terms and context, ensuring critical information is transmitted without errors.
 
 ## Domain-Specific Requirements
 
@@ -121,7 +40,7 @@ Unlike traditional translation apps that force users to wait through sequential 
 ## Assumptions & Dependencies
 
 ### Hardware
-- **Compute**: Raspberry Pi 4 Model B (4GB RAM).
+- **Compute**: Raspberry Pi 4 Model B (2GB RAM).
 - **Audio Input**: USB Analog Microphone (Plug-and-Play class compliant).
 - **Control**: USB Numeric Keypad (Numpad) for PTT control.
 - **Audio Output**: 3.5mm Jack or USB Audio output.
@@ -131,20 +50,15 @@ Unlike traditional translation apps that force users to wait through sequential 
 - **Power**: Stable 5V 3A power supply required for RPi4 and USB peripherals.
 
 ### Software/Data
-- **Models**: Quantized models (GGUF/ONNX) must fit within available RAM (leaving ~512MB for OS/System).
+- **Models**: Quantized models (GGUF/ONNX) must fit within available RAM (leaving ~256MB for OS/System).
 
 ## Innovation & Novel Patterns
 
-### Key Innovations
-- **Async Concurrency**: Challenges the assumption that offline translation must be sequential and slow.
-- **LLM-Powered Quality**: Challenges the assumption that offline devices cannot provide high-quality, nuanced translation.
-- **Auto-Segmentation**: Enables near-simultaneous translation by processing phrases during pauses while the button is held.
-- **FOSS Edge AI**: Provides an open-source alternative to proprietary, closed translation hardware.
 
 ## Desktop/CLI/Embedded Specific Requirements
 
 ### Technical Architecture Considerations
-- **Platform Support**: Primary support for Windows and Raspberry Pi 4. Future Mac/Linux support.
+- **Platform Support**: Primary support for Windows and Raspberry Pi 4.
 - **System Integration**: Cross-platform audio I/O, hardware abstraction for input devices.
 - **Manual Updates**: Users pull code and download models manually via the repository or provided scripts.
 
