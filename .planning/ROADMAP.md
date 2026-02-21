@@ -26,10 +26,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. User can launch app with `--profile rpi_deployment` and app loads that profile's settings
   3. If user specifies a profile that doesn't exist in config.yaml, clear error message is shown
   4. Profile flag takes precedence over `current_profile` in config.yaml without modifying the file
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: [Brief description of first plan]
+- [x] 01-01-PLAN.md - Add profile override resolution/validation in config loader with tests
+- [ ] 01-02-PLAN.md - Add CLI --profile parsing and main entrypoint wiring with tests
 
 ### Phase 2: Deploy to Pi
 **Goal**: User can deploy the entire codebase to Raspberry Pi with a single command, enabling rapid iteration cycles.
@@ -53,5 +54,5 @@ Phases execute in numeric order: 1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. CLI Profile Flag | 0/TBD | Not started | - |
+| 1. CLI Profile Flag | 1/2 | In Progress | - |
 | 2. Deploy to Pi | 0/TBD | Not started | - |

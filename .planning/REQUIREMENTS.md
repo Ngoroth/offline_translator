@@ -8,8 +8,8 @@
 ### CLI Configuration
 
 - [ ] **CLI-01**: User can specify profile via `--profile <name>` flag when launching the app
-- [ ] **CLI-02**: Flag overrides `current_profile` in config.yaml without modifying the file
-- [ ] **CLI-03**: Error message shown if specified profile does not exist in config.yaml
+- [x] **CLI-02**: Flag overrides `current_profile` in config.yaml without modifying the file
+- [x] **CLI-03**: Error message shown if specified profile does not exist in config.yaml
 
 ### Deployment
 
@@ -37,8 +37,8 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | CLI-01 | Phase 1 | Pending |
-| CLI-02 | Phase 1 | Pending |
-| CLI-03 | Phase 1 | Pending |
+| CLI-02 | Phase 1 | Complete |
+| CLI-03 | Phase 1 | Complete |
 | DEPLOY-01 | Phase 2 | Pending |
 | DEPLOY-02 | Phase 2 | Pending |
 | DEPLOY-03 | Phase 2 | Pending |
