@@ -56,7 +56,7 @@ This allows for near-simultaneous translation of long, thoughtful speech.
 To avoid translating background noise or accidental short clicks, the system only sends segments to the STT worker if the VAD (Voice Activity Detection) actually confirmed the presence of speech within that segment.
 
 ## Hardware Abstraction Layer (HAL)
-*   **InputProvider:** Abstract interface for PTT (Keyboard/GPIO).
+*   **InputProvider:** Abstract interface for PTT (Keyboard/Evdev).
 *   **AudioIO:** Async wrapper for non-blocking microphone and speaker access.
 
 ## Profile Strategy
