@@ -1,4 +1,6 @@
 import asyncio
+import argparse
+from collections.abc import Sequence
 
 from loguru import logger
 
@@ -19,6 +21,19 @@ from app.services.llm import LLMService
 from app.services.tts import TTSService
 from app.orchestrator.pipeline import TranslationPipeline
 from app.orchestrator.orchestrator import Orchestrator
+
+
+def parse_cli_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        allow_abbrev=False,
+        description="Run the offline translator application.",
+    )
+    parser.add_argument(
+        "--profile",
+        metavar="NAME",
+        help="Use profile NAME from config.yaml for this run.",
+    )
+    return parser.parse_args(argv)
 
 
 def get_input_handler(settings: AppSettings) -> BaseInput:
@@ -53,14 +68,14 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
         return KeyboardInput(key_map=key_map_str)
 
 
-async def main():
+async def main(profile_override: str | None = None):
     # 1. Setup Logging (Must be first for diagnostics)
     setup_logging()
     logger.info("Starting Offline Translator...")
 
     try:
         # 2. Load Config
-        settings = load_settings()
+        settings = load_settings(profile_override=profile_override)
         logger.info(f"Profile: {settings.platform} ({settings.input_mode})")
 
         # Log configuration (structured)
@@ -173,4 +188,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli_args = parse_cli_args()
+    asyncio.run(main(profile_override=cli_args.profile))
