@@ -13,7 +13,7 @@ Users can have natural bilingual conversations with ≤1.0s latency, entirely of
 ### Validated
 
 - ✓ Async pipeline (STT → LLM → TTS) with concurrent processing — existing
-- ✓ PTT input handling (Keyboard, Evdev, GPIO) — existing
+- ✓ PTT input handling (Keyboard, Evdev; GPIO available but not used on target) — existing
 - ✓ Barge-in interruption support — existing
 - ✓ Hardware Abstraction Layer for cross-platform support — existing
 - ✓ Configuration system with profile-based settings — existing
@@ -27,7 +27,7 @@ Users can have natural bilingual conversations with ≤1.0s latency, entirely of
 
 ### Active
 
-- [ ] Fix GPIO active_low hardcoding
+- [ ] Fix GPIO active_low hardcoding (low priority - GPIO not used on target device)
 - [ ] Implement system resource (RAM/CPU) constraint checks
 - [ ] Add configuration validation at startup
 - [ ] Execute thermal stress testing
@@ -54,14 +54,14 @@ Users can have natural bilingual conversations with ≤1.0s latency, entirely of
 - Linting: All checks pass
 
 ### Known Issues (from codebase analysis)
-- GPIO active-low hardcoding needs configuration
+- GPIO active-low hardcoding needs configuration (low priority - GPIO not used on target device)
 - Legacy input settings marked for removal
 - TTS sample rate assumption (single rate per session)
 - Missing: Audio device auto-discovery, echo mode, auditory feedback
 
 ### Target Platforms
 - **Development:** Windows with USB keyboard PTT
-- **Production:** Raspberry Pi 4 with USB numpad or GPIO buttons
+- **Production:** Raspberry Pi 4 with USB numpad (PTT via evdev)
 
 ## Constraints
 
