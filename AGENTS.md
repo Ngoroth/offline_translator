@@ -70,5 +70,5 @@ offline_translator/
 
 ## Hardware & Cross-Platform Notes
 - **Windows**: Development platform, uses `pynput` for keyboard PTT.
-- **Raspberry Pi**: Target platform, needs `GPIOInput` implementation.
+- **Raspberry Pi 4 (2GB RAM)**: Target platform with USB mic, USB numpad (PTT via evdev), and speakers.
 - **Audio**: Standard 16kHz mono float32 for pipeline consistency.
