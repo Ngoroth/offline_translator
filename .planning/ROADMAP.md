@@ -13,6 +13,7 @@ Enable seamless switching between development (Windows) and production (Raspberr
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: CLI Profile Flag** - Add `--profile` flag to select config without editing files (completed 2026-02-21)
+- [x] **Phase 01.1: Fix Windows audio backend selection for desktop profile** - Ensure `desktop_rtx4070` uses Windows recorder backend while `rpi_deployment` keeps ALSA `arecord` (completed 2026-02-21)
 - [ ] **Phase 2: Deploy to Pi** - One-command deployment to Raspberry Pi via rsync
 
 ## Phase Details
@@ -32,6 +33,21 @@ Plans:
 - [x] 01-01-PLAN.md - Add profile override resolution/validation in config loader with tests
 - [x] 01-02-PLAN.md - Add CLI --profile parsing and main entrypoint wiring with tests
 
+### Phase 01.1: Fix Windows audio backend selection for desktop profile (INSERTED)
+
+**Goal:** Desktop profile startup selects a Windows-compatible recorder backend from active profile settings so Windows launches do not execute Linux-only `arecord`, while Raspberry Pi profile behavior remains unchanged.
+**Depends on:** Phase 1
+**Requirements:** AUDIO-01, AUDIO-02, AUDIO-03
+**Success Criteria** (what must be TRUE):
+  1. Launching with `--profile desktop_rtx4070` uses a sounddevice/PortAudio recorder path and does not fail with `arecord command not found`
+  2. Launching with `--profile rpi_deployment` still routes recorder startup through existing ALSA/`arecord` behavior
+  3. Recorder backend selection is driven by active profile intent (`settings.platform`) rather than host OS-only detection
+  4. Recorder startup failures preserve actionable backend-specific guidance via existing audio error UX
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 01.1-01-PLAN.md - Add profile-driven recorder backend selector, wire main startup path, and extend tests
+
 ### Phase 2: Deploy to Pi
 **Goal**: User can deploy the entire codebase to Raspberry Pi with a single command, enabling rapid iteration cycles.
 **Depends on**: Nothing (independent of CLI flag functionality)
@@ -50,9 +66,10 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2
+Phases execute in numeric order: 1 → 01.1 → 2
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. CLI Profile Flag | 2/2 | Complete    | 2026-02-21 |
+| 1.1. Windows Audio Backend Selection | 1/1 | Complete | 2026-02-21 |
 | 2. Deploy to Pi | 0/TBD | Not started | - |

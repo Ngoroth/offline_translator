@@ -19,6 +19,12 @@
 - [ ] **DEPLOY-04**: Deploy script connects to Pi via SSH at `pi@translator`
 - [ ] **DEPLOY-05**: Deploy script shows progress/success/failure status
 
+### Audio Backend Selection
+
+- [x] **AUDIO-01**: Recorder backend selection uses active profile/runtime platform intent (`settings.platform`) as source of truth
+- [x] **AUDIO-02**: `desktop_rtx4070` startup uses a Windows-compatible sounddevice/PortAudio recorder path and avoids Linux-only `arecord` dependency
+- [x] **AUDIO-03**: `rpi_deployment` startup preserves existing ALSA/`arecord` recorder behavior and actionable backend-specific startup errors
+
 ## v2 Requirements
 
 (Deferred — none identified)
@@ -44,10 +50,13 @@
 | DEPLOY-03 | Phase 2 | Pending |
 | DEPLOY-04 | Phase 2 | Pending |
 | DEPLOY-05 | Phase 2 | Pending |
+| AUDIO-01 | Phase 01.1 | Complete |
+| AUDIO-02 | Phase 01.1 | Complete |
+| AUDIO-03 | Phase 01.1 | Complete |
 
 **Coverage:**
-- v1 requirements: 8 total
-- Mapped to phases: 8
+- v1 requirements: 11 total
+- Mapped to phases: 11
 - Unmapped: 0 ✓
 
 ---
