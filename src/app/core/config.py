@@ -137,6 +137,9 @@ def load_settings(
     """
     Load configuration from a YAML file, select the active profile,
     and validate it using AppSettings.
+
+    When provided, profile_override takes precedence over current_profile
+    for this load call only.
     """
     path = Path(config_path)
     if not path.exists():
