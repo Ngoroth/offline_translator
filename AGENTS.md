@@ -51,23 +51,6 @@ uv run basedpyright                  # Mandatory type check
 uv run ruff check .                  # Mandatory lint check
 ```
 
-## Project Structure
-```
-offline_translator/
-├── src/app/                         # Main application package
-│   ├── core/                        # Hardware & I/O
-│   ├── services/                    # AI Model wrappers
-│   ├── settings.py                  # Config models
-│   └── main.py                      # Entry point
-├── tests/
-│   ├── unit/                        # Component tests
-│   └── integration/                 # Pipeline tests
-├── models/                          # GGUF/ONNX models (gitignored)
-├── scripts/                         # Utility scripts
-├── config.yaml                      # Active configuration
-└── pyproject.toml
-```
-
 ## Hardware & Cross-Platform Notes
 - **Windows**: Development platform, uses `pynput` for keyboard PTT.
 - **Raspberry Pi 4 (2GB RAM)**: Target platform with USB mic, USB numpad (PTT via evdev), and speakers.

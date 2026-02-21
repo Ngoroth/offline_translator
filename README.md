@@ -48,7 +48,6 @@ High-performance, configurable offline speech-to-speech translator designed for 
    - You can make pauses while holding the key; the system will process segments in the background.
 
 ## Documentation
-- [Architecture Design](ARCHITECTURE.md) - Deep dive into the async pipeline and HAL.
 - [Usage Scenarios](SCENARIOS.md) - Detailed breakdown of interaction patterns (Barge-in, Multi-phrase, etc.).
 
 ## Testing
