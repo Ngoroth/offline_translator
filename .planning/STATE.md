@@ -2,19 +2,18 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-18)
+See: .planning/PROJECT.md (updated 2026-02-21)
 
 **Core value:** Users can have natural bilingual conversations with ≤1.0s latency, entirely offline.
-**Current focus:** Phase 4 Complete - Ready for Milestone v1.0
+**Current focus:** Planning next milestone (v1.1 Gap Closure)
 
 ## Current Position
 
-Phase: 4 of 4 (Deployment Verification) - COMPLETE
-Plan: 1/1
-Status: Phase complete - Milestone v1.0 ready
-Last activity: 2026-02-19 — Hardware verification passed
+Phase: N/A - Milestone v1.0 Shipped
+Status: Planning next milestone
+Last activity: 2026-02-21 — Milestone v1.0 Archived
 
-Progress: [██████████] 100%
+Progress: [          ] 0%
 
 ## Performance Metrics
 
@@ -45,23 +44,21 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Roadmap:** 4-phase verification and deployment readiness plan
-- **Phase 1 first:** Dependency updates are foundational; breaking changes easier to catch with unchanged codebase
-- **Phase 2 before 3:** Audio discovery is highest-impact reliability fix; verification suite can then test it
-- **Startup verification:** File validation moved from pydantic to StartupVerifier for clean exit codes and plain text output — Pydantic validators raised structured ValidationError without clean exit codes. StartupVerifier provides plain text messages with exit codes 1/2.
-- **Error logging:** Use inline format for error logs with session_id and context-specific fields (audio_len, language pair, voice) for traceability
-- **Hardware verified:** Raspberry Pi 5 with USB audio (plughw:2,0 capture, plughw:0,0 playback) and numpad PTT (evdev /dev/input/event1) confirmed functional
+- **Roadmap:** v1.0 Verification Readiness shipped. New roadmap starting for v1.1 Gap Closure.
+- **Startup verification:** File validation moved from pydantic to StartupVerifier for clean exit codes and plain text output.
+- **Deferred validations:** Model loading and RAM/CPU checking were deferred during v1.0 and remain as technical debt.
+- **Hardcoded GPIO Config:** `active_low` boolean is exported but ignored. Needs fix in next milestone.
 
 ### Pending Todos
 
-None - all phases complete.
+- Plan milestone gaps and create `.planning/REQUIREMENTS.md`
 
 ### Blockers/Concerns
 
-None - hardware verification passed. Ready for production deployment.
+- Deferred system resource checks and GPIO config hardcoding need to be addressed in the next phase.
 
 ## Session Continuity
 
-Last session: 2026-02-19 (hardware verification)
-Stopped at: Completed 04-01-PLAN.md (Phase 4 complete)
+Last session: 2026-02-21 (Milestone Archive)
+Stopped at: Archiving v1.0 Milestone
 Resume file: None
