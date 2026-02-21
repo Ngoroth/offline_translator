@@ -84,3 +84,84 @@ def test_load_default_config_yaml():
     settings = load_settings(config_path)
     assert isinstance(settings, AppSettings)
     assert settings.stt.language == "en"
+
+
+def test_load_settings_profile_override_takes_precedence_and_is_read_only(tmp_path: Path):
+    config_data = {
+        "current_profile": "desktop_rtx4070",
+        "profiles": {
+            "desktop_rtx4070": {
+                "platform": "windows",
+                "input_mode": "keyboard",
+                "stt": {"model_path": "models/stt/desktop", "language": "en", "beam_size": 5},
+                "llm": {
+                    "model_path": "models/llm/desktop.gguf",
+                    "context_window": 2048,
+                    "n_threads": 4,
+                },
+                "tts": {"model_path": "models/tts/desktop.onnx", "speaker_id": 0},
+            },
+            "rpi_deployment": {
+                "platform": "linux",
+                "input_mode": "evdev",
+                "stt": {"model_path": "models/stt/pi", "language": "ru", "beam_size": 3},
+                "llm": {
+                    "model_path": "models/llm/pi.gguf",
+                    "context_window": 1024,
+                    "n_threads": 2,
+                },
+                "tts": {"model_path": "models/tts/pi.onnx", "speaker_id": 1},
+            },
+        },
+    }
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(yaml.dump(config_data), encoding="utf-8")
+    original_bytes = config_file.read_bytes()
+
+    settings = load_settings(config_file, profile_override="rpi_deployment")
+
+    assert settings.platform == "linux"
+    assert settings.input_mode == "evdev"
+    assert settings.stt.language == "ru"
+    assert config_file.read_bytes() == original_bytes
+
+
+def test_load_settings_profile_override_unknown_profile_lists_available(tmp_path: Path):
+    config_data = {
+        "current_profile": "desktop_rtx4070",
+        "profiles": {
+            "desktop_rtx4070": {
+                "stt": {"model_path": "models/stt/desktop", "language": "en", "beam_size": 5},
+                "llm": {
+                    "model_path": "models/llm/desktop.gguf",
+                    "context_window": 2048,
+                    "n_threads": 4,
+                },
+                "tts": {"model_path": "models/tts/desktop.onnx", "speaker_id": 0},
+            },
+            "rpi_deployment": {
+                "stt": {"model_path": "models/stt/pi", "language": "ru", "beam_size": 3},
+                "llm": {
+                    "model_path": "models/llm/pi.gguf",
+                    "context_window": 1024,
+                    "n_threads": 2,
+                },
+                "tts": {"model_path": "models/tts/pi.onnx", "speaker_id": 1},
+            },
+        },
+    }
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(yaml.dump(config_data), encoding="utf-8")
+
+    try:
+        load_settings(config_file, profile_override="missing_profile")
+    except ValueError as exc:
+        message = str(exc)
+    else:
+        raise AssertionError("Expected load_settings to raise ValueError for unknown profile")
+
+    assert "missing_profile" in message
+    assert "desktop_rtx4070" in message
+    assert "rpi_deployment" in message
