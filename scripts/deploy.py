@@ -9,6 +9,7 @@ from pathlib import Path
 
 REMOTE_HOST = "pi@translator"
 REMOTE_DIR = "/home/pi/offline_translator"
+REQUIRED_EXCLUDES = (".venv/", "__pycache__/", ".git/", "logs/")
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,11 @@ def _project_root() -> Path:
 def _build_rsync_command() -> list[str]:
     source = f"{_project_root()}/"
     destination = f"{REMOTE_HOST}:{REMOTE_DIR}/"
-    return ["rsync", "-az", source, destination]
+    command = ["rsync", "-az", "--progress"]
+    for path in REQUIRED_EXCLUDES:
+        command.append(f"--exclude={path}")
+    command.extend([source, destination])
+    return command
 
 
 def _build_remote_sync_command() -> list[str]:
@@ -40,8 +45,21 @@ def _run_stage(stage: Stage) -> None:
     try:
         subprocess.run(stage.command, check=True, text=True)
     except subprocess.CalledProcessError as exc:
-        command = " ".join(stage.command)
-        raise DeployError(f"{stage.name} failed while running `{command}`.") from exc
+        raise DeployError(_map_subprocess_failure(stage, exc)) from exc
+
+
+def _map_subprocess_failure(stage: Stage, exc: subprocess.CalledProcessError) -> str:
+    if exc.returncode == 255:
+        return (
+            f"{stage.name} failed: SSH connection to `{REMOTE_HOST}` failed. "
+            "Check host resolution and key auth, then retry: `ssh pi@translator`."
+        )
+
+    command = " ".join(stage.command)
+    return (
+        f"{stage.name} failed while running `{command}` (exit code {exc.returncode}). "
+        "Review command output and rerun `uv run scripts/deploy.py`."
+    )
 
 
 def _require_tool(name: str) -> None:
@@ -65,11 +83,23 @@ def _verify_ssh_reachability() -> None:
 def _verify_remote_uv() -> None:
     command = ["ssh", REMOTE_HOST, "uv --version"]
     try:
-        subprocess.run(command, check=True, text=True)
+        subprocess.run(command, check=True, text=True, capture_output=True)
     except subprocess.CalledProcessError as exc:
+        output = f"{exc.stdout or ''}\n{exc.stderr or ''}".lower()
+        if exc.returncode == 255:
+            raise DeployError(
+                "Unable to verify `uv` on the Raspberry Pi because SSH failed. "
+                "Check connectivity with `ssh pi@translator` and retry."
+            ) from exc
+        if "command not found" in output or "uv:" in output:
+            raise DeployError(
+                "`uv` is not available on the Raspberry Pi. Install it on the Pi (`curl -LsSf "
+                "https://astral.sh/uv/install.sh | sh`) and verify with "
+                '`ssh pi@translator "uv --version"`.'
+            ) from exc
         raise DeployError(
-            "`uv` is not available on the Raspberry Pi. Install it on the Pi (`curl -LsSf "
-            "https://astral.sh/uv/install.sh | sh`) and ensure it is on PATH, then retry."
+            'Failed to verify `uv` on the Raspberry Pi. Run `ssh pi@translator "uv --version"` '
+            "to inspect the remote error, then retry deployment."
         ) from exc
 
 
