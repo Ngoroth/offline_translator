@@ -71,7 +71,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Refactor deploy path configuration (`.planning/todos/pending/2026-02-22-deploy-script.md`)
 
 ### Blockers/Concerns
 
