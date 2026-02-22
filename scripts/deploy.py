@@ -41,7 +41,7 @@ def _build_remote_sync_command() -> list[str]:
 
 
 def _run_stage(stage: Stage) -> None:
-    print(f"[deploy] {stage.name}...")
+    print(f"[deploy] {stage.name}...", flush=True)
     try:
         _ = subprocess.run(stage.command, check=True, text=True)
     except subprocess.CalledProcessError as exc:
@@ -103,7 +103,7 @@ def _verify_remote_uv() -> None:
 
 
 def _run_preflight() -> None:
-    print("[deploy] preflight...")
+    print("[deploy] preflight...", flush=True)
     _require_tool("ssh")
     _require_tool("rsync")
     _verify_ssh_reachability()
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[deploy] failed: {exc}", file=sys.stderr)
         return 1
 
-    print("[deploy] success")
+    print("[deploy] success", flush=True)
     return 0
 
 
