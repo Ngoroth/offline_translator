@@ -14,6 +14,7 @@ def mock_services() -> dict[str, MagicMock | AsyncMock]:
     mock_settings.vad.aggressiveness = 3
     mock_settings.vad.threshold_ms = 500  # 500ms
     mock_settings.audio.sample_rate = 16000
+    mock_settings.audio.playback_during_recording = False
 
     # TTS Mock that returns an async iterator (empty by default)
     async def empty_async_iter(*_args: object, **_kwargs: object):
@@ -222,3 +223,76 @@ async def test_vad_multiple_segments_harvested(
 
         # Cleanup
         await pipeline.stop_session()
+
+
+async def _wait_for_player_calls(player: MagicMock, expected: int, timeout: float = 1.0) -> None:
+    async def _await_calls() -> None:
+        while player.play.call_count < expected:
+            await asyncio.sleep(0.01)
+
+    await asyncio.wait_for(_await_calls(), timeout=timeout)
+
+
+@pytest.mark.asyncio
+async def test_playback_deferred_until_release_when_mode_disabled(
+    mock_services: dict[str, MagicMock | AsyncMock],
+) -> None:
+    mock_services["settings"].audio.playback_during_recording = False
+    mock_services["recorder"].stop.return_value = np.array([], dtype=np.float32)
+
+    async def slow_chunk() -> np.ndarray:
+        await asyncio.sleep(1.0)
+        return np.zeros(1600, dtype=np.float32)
+
+    mock_services["recorder"].get_chunk = AsyncMock(side_effect=slow_chunk)
+
+    pipeline = TranslationPipeline(
+        settings=mock_services["settings"],
+        stt=mock_services["stt"],
+        llm=mock_services["llm"],
+        tts=mock_services["tts"],
+        recorder=mock_services["recorder"],
+        player=mock_services["player"],
+    )
+
+    await pipeline.start_session()
+
+    first = np.array([0.1, 0.2], dtype=np.float32).tobytes()
+    second = np.array([0.3, 0.4], dtype=np.float32).tobytes()
+    await pipeline.player_queue.put(first)
+    await pipeline.player_queue.put(second)
+
+    await asyncio.sleep(0.1)
+    assert mock_services["player"].play.call_count == 0
+
+    await pipeline.handle_input_complete()
+    await _wait_for_player_calls(mock_services["player"], expected=2)
+
+    played_chunks = [call.args[0] for call in mock_services["player"].play.call_args_list]
+    assert np.array_equal(played_chunks[0], np.frombuffer(first, dtype=np.float32))
+    assert np.array_equal(played_chunks[1], np.frombuffer(second, dtype=np.float32))
+
+    await pipeline.stop_session()
+
+
+@pytest.mark.asyncio
+async def test_playback_can_start_while_holding_when_mode_enabled(
+    mock_services: dict[str, MagicMock | AsyncMock],
+) -> None:
+    mock_services["settings"].audio.playback_during_recording = True
+
+    pipeline = TranslationPipeline(
+        settings=mock_services["settings"],
+        stt=mock_services["stt"],
+        llm=mock_services["llm"],
+        tts=mock_services["tts"],
+        recorder=mock_services["recorder"],
+        player=mock_services["player"],
+    )
+
+    await pipeline.start_session()
+    await pipeline.player_queue.put(np.array([0.7, 0.8], dtype=np.float32).tobytes())
+
+    await _wait_for_player_calls(mock_services["player"], expected=1)
+
+    await pipeline.stop_session()
