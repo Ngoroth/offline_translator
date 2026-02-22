@@ -42,7 +42,10 @@ def parse_cli_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--playback-during-recording",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help=("Allow translation playback before PTT release for this run (headset mode)."),
+        help=(
+            "Headset mode for this run: allow playback before PTT release. "
+            "Default remains speaker mode (off)."
+        ),
     )
     return parser.parse_args(argv)
 

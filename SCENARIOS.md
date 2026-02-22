@@ -35,3 +35,4 @@ This document defines the intended User Experience (UX) and interaction patterns
 ## 5. Environment-Specific Playback
 *   **Speaker Mode (Default):** `playback_during_recording: false`. Sound waits for button release to avoid feedback/echo.
 *   **Headset Mode:** `playback_during_recording: true`. Sound starts as soon as it's ready, providing near-simultaneous translation.
+*   **Runtime CLI override (per launch):** Use `--playback-during-recording` (headset) or `--no-playback-during-recording` (speaker). This override applies only to the current run and does not change `config.yaml` defaults.
