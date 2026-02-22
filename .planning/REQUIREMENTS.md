@@ -28,6 +28,7 @@
 ### VAD Playback Timing Gate
 
 - [x] **VAD-GATE-01**: `audio.playback_during_recording` controls whether translated playback can start before PTT release
+- [x] **VAD-GATE-02**: Existing playback mode remains configurable via profile config and per-launch CLI override without persisting runtime overrides to `config.yaml`
 - [x] **VAD-GATE-03**: Existing VAD pause timing and queued chunk FIFO release behavior remain unchanged while applying playback gate
 
 ## v2 Requirements
@@ -59,13 +60,14 @@
 | AUDIO-02 | Phase 01.1 | Complete |
 | AUDIO-03 | Phase 01.1 | Complete |
 | VAD-GATE-01 | Phase 01.2 | Complete |
+| VAD-GATE-02 | Phase 01.2 | Complete |
 | VAD-GATE-03 | Phase 01.2 | Complete |
 
 **Coverage:**
-- v1 requirements: 13 total
-- Mapped to phases: 13
+- v1 requirements: 14 total
+- Mapped to phases: 14
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-22 after Phase 01.2 Plan 01 execution*
+*Last updated: 2026-02-22 after Phase 01.2 Plan 02 execution*

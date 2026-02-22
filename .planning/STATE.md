@@ -9,20 +9,20 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 ## Current Position
 
-Current Phase: 01.2 of 3 (Investigate VAD-triggered playback timing)
-Current Plan: 2
-Total Plans in Phase: 2
-Status: In Progress
-Last activity: 2026-02-22 - Completed 01.2-01-PLAN.md
+Current Phase: 2 of 3 (Deploy to Pi)
+Current Plan: 1
+Total Plans in Phase: TBD
+Status: Ready for Planning
+Last activity: 2026-02-22 - Completed 01.2-02-PLAN.md
 
-Progress: [########--] 80%
+Progress: [#########-] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 2 min
-- Total execution time: 0.1 hours
+- Total plans completed: 5
+- Average duration: 5 min
+- Total execution time: 0.4 hours
 
 **By Phase:**
 
@@ -30,9 +30,10 @@ Progress: [########--] 80%
 |-------|-------|-------|----------|
 | 1 | 2 | 5 min | 2 min |
 | 1.1 | 1 | 4 min | 4 min |
+| 1.2 | 2 | 16 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 1 min, 4 min, 4 min
+- Last 5 plans: 1 min, 4 min, 4 min, 14 min, 2 min
 - Trend: Stable
 
 *Updated after each plan completion*
@@ -40,6 +41,7 @@ Progress: [########--] 80%
 | Phase 01 P02 | 4 min | 3 tasks | 2 files |
 | Phase 01.1 P01 | 4 min | 3 tasks | 6 files |
 | Phase 01.2 P01 | 14 min | 3 tasks | 3 files |
+| Phase 01.2 P02 | 2 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -56,6 +58,8 @@ Recent decisions affecting current work:
 - [Phase 01.1]: Sounddevice startup/runtime failures are wrapped in AudioDeviceError to preserve backend-specific guidance.
 - [Phase 01.2]: Playback is deferred in player worker while LISTENING unless audio.playback_during_recording is enabled.
 - [Phase 01.2]: PTT release remains the unlock point and queued chunks flush in FIFO order.
+- [Phase 01.2]: Use --playback-during-recording/--no-playback-during-recording with default None so unset CLI preserves profile defaults.
+- [Phase 01.2]: Apply playback override only to in-memory settings after load_settings and never persist it to config.yaml.
 
 ### Roadmap Evolution
 
@@ -73,5 +77,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 01.2-01-PLAN.md
+Stopped at: Completed 01.2-02-PLAN.md
 Resume file: None
