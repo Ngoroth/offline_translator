@@ -54,4 +54,5 @@ uv run ruff check .                  # Mandatory lint check
 ## Hardware & Cross-Platform Notes
 - **Windows**: Development platform, uses `pynput` for keyboard PTT.
 - **Raspberry Pi 4 (2GB RAM)**: Target platform with USB mic, USB numpad (PTT via evdev), and speakers.
+  - SSH: `ssh pi@translator`
 - **Audio**: Standard 16kHz mono float32 for pipeline consistency.
