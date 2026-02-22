@@ -341,7 +341,7 @@ class TranslationPipeline:
                     audio_data = payload.get("audio")
                     session_id = payload.get("session_id", "unknown")
                     logger.error(
-                        f"STT Error [session={session_id}, audio_len={len(audio_data) if audio_data is not None else 0}]: {e}"
+                        f"STT Error [session={session_id}, audio_len={len(audio_data)}]: {e}"
                     )
 
         except asyncio.CancelledError:
