@@ -25,6 +25,11 @@
 - [x] **AUDIO-02**: `desktop_rtx4070` startup uses a Windows-compatible sounddevice/PortAudio recorder path and avoids Linux-only `arecord` dependency
 - [x] **AUDIO-03**: `rpi_deployment` startup preserves existing ALSA/`arecord` recorder behavior and actionable backend-specific startup errors
 
+### VAD Playback Timing Gate
+
+- [x] **VAD-GATE-01**: `audio.playback_during_recording` controls whether translated playback can start before PTT release
+- [x] **VAD-GATE-03**: Existing VAD pause timing and queued chunk FIFO release behavior remain unchanged while applying playback gate
+
 ## v2 Requirements
 
 (Deferred — none identified)
@@ -53,12 +58,14 @@
 | AUDIO-01 | Phase 01.1 | Complete |
 | AUDIO-02 | Phase 01.1 | Complete |
 | AUDIO-03 | Phase 01.1 | Complete |
+| VAD-GATE-01 | Phase 01.2 | Complete |
+| VAD-GATE-03 | Phase 01.2 | Complete |
 
 **Coverage:**
-- v1 requirements: 11 total
-- Mapped to phases: 11
+- v1 requirements: 13 total
+- Mapped to phases: 13
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-20*
-*Last updated: 2026-02-20 after initial definition*
+*Last updated: 2026-02-22 after Phase 01.2 Plan 01 execution*

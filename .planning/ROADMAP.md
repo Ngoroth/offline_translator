@@ -33,6 +33,15 @@ Plans:
 - [x] 01-01-PLAN.md - Add profile override resolution/validation in config loader with tests
 - [x] 01-02-PLAN.md - Add CLI --profile parsing and main entrypoint wiring with tests
 
+### Phase 01.2: Investigate VAD-triggered translation playback before PTT release during speech pauses (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Depends on:** Phase 1
+**Plans:** 1/2 plans executed
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 01.2 to break down)
+
 ### Phase 01.1: Fix Windows audio backend selection for desktop profile (INSERTED)
 
 **Goal:** Desktop profile startup selects a Windows-compatible recorder backend from active profile settings so Windows launches do not execute Linux-only `arecord`, while Raspberry Pi profile behavior remains unchanged.
