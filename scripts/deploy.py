@@ -43,7 +43,7 @@ def _build_remote_sync_command() -> list[str]:
 def _run_stage(stage: Stage) -> None:
     print(f"[deploy] {stage.name}...")
     try:
-        subprocess.run(stage.command, check=True, text=True)
+        _ = subprocess.run(stage.command, check=True, text=True)
     except subprocess.CalledProcessError as exc:
         raise DeployError(_map_subprocess_failure(stage, exc)) from exc
 
@@ -72,34 +72,33 @@ def _require_tool(name: str) -> None:
 def _verify_ssh_reachability() -> None:
     command = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", REMOTE_HOST, "true"]
     try:
-        subprocess.run(command, check=True, text=True)
+        _ = subprocess.run(command, check=True, text=True)
     except subprocess.CalledProcessError as exc:
         raise DeployError(
             "Unable to reach `pi@translator` over SSH. Verify host resolution and key auth: "
-            "`ssh pi@translator`"
+            + "`ssh pi@translator`."
         ) from exc
 
 
 def _verify_remote_uv() -> None:
     command = ["ssh", REMOTE_HOST, "uv --version"]
     try:
-        subprocess.run(command, check=True, text=True, capture_output=True)
+        _ = subprocess.run(command, check=True, text=True, capture_output=True)
     except subprocess.CalledProcessError as exc:
-        output = f"{exc.stdout or ''}\n{exc.stderr or ''}".lower()
         if exc.returncode == 255:
             raise DeployError(
                 "Unable to verify `uv` on the Raspberry Pi because SSH failed. "
-                "Check connectivity with `ssh pi@translator` and retry."
+                + "Check connectivity with `ssh pi@translator` and retry."
             ) from exc
-        if "command not found" in output or "uv:" in output:
+        if exc.returncode == 127:
             raise DeployError(
                 "`uv` is not available on the Raspberry Pi. Install it on the Pi (`curl -LsSf "
-                "https://astral.sh/uv/install.sh | sh`) and verify with "
-                '`ssh pi@translator "uv --version"`.'
+                + "https://astral.sh/uv/install.sh | sh`) and verify with "
+                + '`ssh pi@translator "uv --version"`.'
             ) from exc
         raise DeployError(
-            'Failed to verify `uv` on the Raspberry Pi. Run `ssh pi@translator "uv --version"` '
-            "to inspect the remote error, then retry deployment."
+            "Failed to verify `uv` on the Raspberry Pi. Run "
+            + '`ssh pi@translator "uv --version"` to inspect the remote error, then retry deployment.'
         ) from exc
 
 

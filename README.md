@@ -50,6 +50,28 @@ High-performance, configurable offline speech-to-speech translator designed for 
 ## Documentation
 - [Usage Scenarios](SCENARIOS.md) - Detailed breakdown of interaction patterns (Barge-in, Multi-phrase, etc.).
 
+## Deploy to Raspberry Pi
+
+### Preconditions
+- Raspberry Pi is reachable over SSH as `pi@translator` from your machine.
+- Local machine has `ssh` and `rsync` available on `PATH`.
+
+### Command
+```bash
+uv run scripts/deploy.py
+```
+
+### What the deploy script does
+1. Runs preflight checks for local tools, SSH reachability, and remote `uv` availability.
+2. Syncs project files with `rsync` to `/home/pi/offline_translator/` on `pi@translator`.
+3. Excludes `.venv/`, `__pycache__/`, `.git/`, and `logs/` from transfer.
+4. Runs `uv sync` remotely in the deployed directory.
+
+### Expected output shape
+- Stage banners like `[deploy] preflight...`, `[deploy] rsync...`, and `[deploy] remote uv sync...`.
+- Final status line: `[deploy] success` or `[deploy] failed: ...` with actionable next steps.
+- If `uv` is missing on the Pi, the script prints concise install guidance and a verification command.
+
 ## Testing
 The project uses `pytest` with markers for different test levels.
 
