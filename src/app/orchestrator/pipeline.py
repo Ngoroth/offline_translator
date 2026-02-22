@@ -440,6 +440,16 @@ class TranslationPipeline:
                 if chunk is None:
                     break
 
+                while (
+                    not self.settings.audio.playback_during_recording
+                    and self.session.state == SessionState.LISTENING
+                    and not self.session.cancel_event.is_set()
+                ):
+                    await asyncio.sleep(0.01)
+
+                if self.session.cancel_event.is_set():
+                    break
+
                 if self.session.state != SessionState.SPEAKING:
                     self.session.state = SessionState.SPEAKING
 
