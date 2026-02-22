@@ -16,8 +16,8 @@ CACHE_DIR = Path.home() / ".cache" / "offline_translator_tests"
 STT_REPO = "Systran/faster-whisper-tiny"
 
 # LLM model config
-LLM_REPO = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
-LLM_FILE = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
+LLM_REPO = "Qwen/Qwen3-0.6B-GGUF"
+LLM_FILE = "Qwen3-0.6B-Q8_0.gguf"
 
 # TTS model config
 TTS_REPO = "rhasspy/piper-voices"
@@ -46,7 +46,7 @@ def stt_model_path() -> Path:
 
 @pytest.fixture(scope="session")
 def llm_model_path() -> Path:
-    """Download and cache Qwen3-0.6B-Q4_K_M.gguf for E2E tests.
+    """Download and cache Qwen3-0.6B-Q8_0.gguf for E2E tests.
 
     Uses a small quantized model for fast testing while still
     validating real LLM inference.

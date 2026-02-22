@@ -24,9 +24,9 @@ def main():
     llm_desktop_url = "https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
     download_file(llm_desktop_url, models_dir / "llm" / "Qwen3-4B-Instruct-2507-Q4_K_M.gguf")
 
-    # Edge: Qwen 3 1.7B Instruct
-    llm_edge_url = "https://huggingface.co/lm-kit/qwen-3-1.7b-instruct-gguf/resolve/main/Qwen3-1.7B-Q4_K_M.gguf"
-    download_file(llm_edge_url, models_dir / "llm" / "Qwen3-1.7B-Q4_K_M.gguf")
+    # Raspberry Pi: Qwen 3 0.6B Instruct
+    llm_pi_url = "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf"
+    download_file(llm_pi_url, models_dir / "llm" / "Qwen3-0.6B-Q8_0.gguf")
 
     # TTS Model (Piper)
     # English

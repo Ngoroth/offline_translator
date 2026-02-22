@@ -1,7 +1,7 @@
 from huggingface_hub import list_repo_files
 
 try:
-    repo_id = "Qwen/Qwen2.5-0.5B-Instruct-GGUF"
+    repo_id = "Qwen/Qwen3-0.6B-GGUF"
     files = list_repo_files(repo_id)
     print(f"Files in {repo_id}:")
     for f in files:

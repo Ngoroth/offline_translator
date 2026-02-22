@@ -72,7 +72,7 @@ profiles:
 
     llm:
       # Using smaller 0.6B model for faster inference on Raspberry Pi (~400MB vs 1.2GB)
-      model_path: "models/llm/Qwen3-0.6B-Q4_K_M.gguf"
+      model_path: "models/llm/Qwen3-0.6B-Q8_0.gguf"
       n_gpu_layers: 0
       n_ctx: 512  # Reduced for faster inference (translation doesn't need large context)
       thread_count: 8  # Use all available threads on Pi 4 (4 cores * 2 threads)

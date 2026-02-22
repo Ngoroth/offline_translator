@@ -14,7 +14,7 @@ High-performance, configurable offline speech-to-speech translator designed for 
 ## Tech Stack
 - **Python**: 3.12+
 - **STT**: `faster-whisper` with VAD (WebRTC)
-- **LLM**: `llama-cpp-python` (Qwen 2.5 / Llama 3)
+- **LLM**: `llama-cpp-python` (Qwen 3 GGUF)
 - **TTS**: `piper-tts` (ONNX)
 - **Audio**: `sounddevice`, `numpy`
 
@@ -33,6 +33,7 @@ High-performance, configurable offline speech-to-speech translator designed for 
    ```bash
    uv run python scripts/download_models.py
    ```
+   This downloads Qwen3 desktop (`4B`) and Raspberry Pi (`0.6B`) model files, plus Piper TTS voices.
 
 ## Usage
 

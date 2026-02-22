@@ -1,13 +1,13 @@
 #!/bin/bash
 # Download Qwen3-0.6B model for Raspberry Pi
 
-echo "Downloading Qwen3-0.6B-Q4_K_M.gguf for Raspberry Pi..."
+echo "Downloading Qwen3-0.6B-Q8_0.gguf for Raspberry Pi..."
 echo "This is a lightweight model (~400MB) optimized for faster inference on Pi 4"
 echo ""
 
-MODEL_URL="https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf"
+MODEL_URL="https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf"
 MODEL_DIR="models/llm"
-MODEL_FILE="$MODEL_DIR/Qwen3-0.6B-Q4_K_M.gguf"
+MODEL_FILE="$MODEL_DIR/Qwen3-0.6B-Q8_0.gguf"
 
 # Create directory if it doesn't exist
 mkdir -p "$MODEL_DIR"
