@@ -8,6 +8,22 @@ Offline speech-to-speech translator running on Windows PC (development) and Rasp
 
 Run the same codebase on both platforms without manual config changes — one command to launch, one command to deploy.
 
+## Current State
+
+Shipped **v1.0 Cross-Platform Deployment** on 2026-02-22.
+
+Delivered in v1.0:
+- CLI profile selection (`--profile`) with strict validation and non-persistent runtime override behavior
+- Profile-intent recorder backend routing (`settings.platform`) with Windows sounddevice path and Pi/Linux ALSA preservation
+- Playback timing controls for hold-to-talk sessions with runtime opt-in for early playback
+- One-command deploy workflow (`uv run scripts/deploy.py`) with preflight checks, rsync exclusions, remote `uv sync`, and actionable failures
+
+## Next Milestone Goals
+
+- Parameterize deploy host/path to reduce environment coupling.
+- Add post-deploy runtime smoke checks on target hardware.
+- Close remaining human-needed verification for real-device playback behavior.
+
 ## Requirements
 
 ### Validated
@@ -17,11 +33,16 @@ Run the same codebase on both platforms without manual config changes — one co
 - ✓ Hardware abstraction layer for PTT input (BaseInput factory)
 - ✓ Audio device resolution with fallbacks
 - ✓ Different model sizes per platform (small LLM on desktop, tiny on Pi)
+- ✓ CLI profile flag and startup override behavior (`CLI-01`, `CLI-02`, `CLI-03`) — v1.0
+- ✓ Audio backend selection by profile intent (`AUDIO-01`, `AUDIO-02`, `AUDIO-03`) — v1.0
+- ✓ Playback timing gate and runtime override semantics (`VAD-GATE-01`, `VAD-GATE-02`, `VAD-GATE-03`) — v1.0
+- ✓ One-command deploy workflow (`DEPLOY-01` through `DEPLOY-05`) — v1.0
 
 ### Active
 
-- [ ] CLI flag `--profile` to select config profile without editing config.yaml
-- [ ] Deploy script: rsync files to pi@translator + run `uv sync` remotely
+- [ ] Deploy target configurability (host/path flags or profile-driven deploy target)
+- [ ] Post-deploy smoke verification pipeline for runtime startup checks
+- [ ] Complete deferred hardware confirmation checks for playback behavior
 
 ### Out of Scope
 
@@ -31,7 +52,7 @@ Run the same codebase on both platforms without manual config changes — one co
 
 ## Context
 
-**Current workflow problem:** Switching between Windows dev and Pi deployment requires manually editing `current_profile` in config.yaml. Deploy to Pi requires manual rsync commands.
+**Current workflow baseline:** Cross-platform switching and deployment are now automated through CLI profile selection and deploy orchestration.
 
 **Existing infrastructure:**
 - Pi accessible via SSH at `pi@translator`
@@ -54,9 +75,11 @@ Run the same codebase on both platforms without manual config changes — one co
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| `--profile` flag instead of auto-detect | Explicit is simpler, easier to debug, no surprises | — Pending |
-| rsync + uv sync instead of git pull | Faster incremental deploys, handles models well | — Pending |
-| Exclude .venv from sync | Virtual envs are platform-specific | — Pending |
+| `--profile` flag instead of auto-detect | Explicit is simpler, easier to debug, no surprises | ✓ Good |
+| rsync + uv sync instead of git pull | Faster incremental deploys, handles models well | ✓ Good |
+| Exclude `.venv` from sync | Virtual environments are platform-specific | ✓ Good |
+| Recorder backend selected from `settings.platform` | Profile intent must win over host assumptions | ✓ Good |
+| Runtime playback mode override is non-persistent | Launch-time flexibility without config drift | ✓ Good |
 
 ---
-*Last updated: 2026-02-20 after initialization*
+*Last updated: 2026-02-22 after v1.0 milestone completion*
