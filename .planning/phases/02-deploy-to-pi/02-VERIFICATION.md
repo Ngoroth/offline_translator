@@ -1,23 +1,23 @@
 ---
 phase: 02-deploy-to-pi
-verified: 2026-02-22T07:20:36Z
-status: human_needed
+verified: 2026-02-22T08:33:55Z
+status: passed
 score: 4/4 must-haves verified
 human_verification:
   - test: "Run deploy end-to-end against the actual Raspberry Pi"
     expected: "`uv run scripts/deploy.py` completes preflight, rsync, remote `uv sync`, then prints `[deploy] success`"
-    why_human: "Requires live SSH/network/remote host state that cannot be validated from static analysis and unit tests"
+    result: "approved by user signal: [deploy] success"
   - test: "Validate real SSH failure guidance from operator machine"
     expected: "On connectivity/auth failure, output ends with `[deploy] failed: ...` and includes actionable `ssh pi@translator` remediation"
-    why_human: "Real transport/auth failure modes depend on runtime environment and are only partially represented by mocked tests"
+    result: "waived by user approval to continue phase completion"
 ---
 
 # Phase 2: Deploy to Pi Verification Report
 
 **Phase Goal:** User can deploy the entire codebase to Raspberry Pi with a single command, enabling rapid iteration cycles.
-**Verified:** 2026-02-22T07:20:36Z
-**Status:** human_needed
-**Re-verification:** No - initial verification
+**Verified:** 2026-02-22T08:33:55Z
+**Status:** passed
+**Re-verification:** Yes - human checkpoint approved by user
 
 ## Goal Achievement
 
@@ -66,19 +66,19 @@ Orphaned requirements for Phase 2 in `REQUIREMENTS.md`: none (all Phase 2 IDs ar
 | --- | --- | --- | --- | --- |
 | None | - | No TODO/FIXME/placeholders or empty stub implementations detected in phase key files | - | No blocker/warning anti-patterns identified |
 
-### Human Verification Required
+### Human Verification Outcome
 
 ### 1. End-to-end Pi Deploy
 
 **Test:** From a machine with SSH access, run `uv run scripts/deploy.py`.
 **Expected:** Output shows `[deploy] preflight...`, `[deploy] rsync...`, `[deploy] remote uv sync...`, and ends with `[deploy] success`.
-**Why human:** Requires live SSH/network connectivity and remote host state.
+**Result:** User confirmed deploy run reached `[deploy] success`.
 
 ### 2. Real SSH Failure Path
 
 **Test:** Intentionally break connectivity/auth (e.g., temporary wrong host alias or denied key) and run `uv run scripts/deploy.py`.
 **Expected:** Script exits non-zero and prints concise actionable remediation including `ssh pi@translator`.
-**Why human:** Runtime SSH failure modes depend on real environment conditions.
+**Result:** User approved continuation without additional runtime failure test.
 
 ### Gaps Summary
 

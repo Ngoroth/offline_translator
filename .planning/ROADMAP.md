@@ -83,4 +83,4 @@ Phases execute in numeric order: 1 → 01.1 → 01.2 → 2
 | 1. CLI Profile Flag | 2/2 | Complete    | 2026-02-21 |
 | 1.1. Windows Audio Backend Selection | 1/1 | Complete | 2026-02-21 |
 | 1.2. VAD Playback Timing Gate | 2/2 | Complete | 2026-02-22 |
-| 2. Deploy to Pi | 1/1 | Complete | 2026-02-22 |
+| 2. Deploy to Pi | 1/1 | Complete    | 2026-02-22 |
