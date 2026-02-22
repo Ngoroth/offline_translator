@@ -38,6 +38,12 @@ def parse_cli_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         metavar="NAME",
         help="Use profile NAME from config.yaml for this run.",
     )
+    _ = parser.add_argument(
+        "--playback-during-recording",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=("Allow translation playback before PTT release for this run (headset mode)."),
+    )
     return parser.parse_args(argv)
 
 
@@ -73,7 +79,10 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
         return KeyboardInput(key_map=key_map_str)
 
 
-async def main(profile_override: str | None = None) -> int:
+async def main(
+    profile_override: str | None = None,
+    playback_during_recording_override: bool | None = None,
+) -> int:
     # 1. Setup Logging (Must be first for diagnostics)
     setup_logging()
     logger.info("Starting Offline Translator...")
@@ -81,6 +90,8 @@ async def main(profile_override: str | None = None) -> int:
     try:
         # 2. Load Config
         settings = load_settings(profile_override=profile_override)
+        if playback_during_recording_override is not None:
+            settings.audio.playback_during_recording = playback_during_recording_override
         active_profile = profile_override or _get_current_profile_key()
         logger.info(f"Profile: {active_profile}")
         logger.info(f"Platform: {settings.platform} ({settings.input_mode})")
@@ -221,9 +232,21 @@ def _get_current_profile_key(config_path: str | Path = "config.yaml") -> str:
 def cli(argv: Sequence[str] | None = None) -> int:
     cli_args = parse_cli_args(argv)
     profile_override = getattr(cli_args, "profile", None)
+    playback_during_recording_override = getattr(cli_args, "playback_during_recording", None)
     if profile_override is not None and not isinstance(profile_override, str):
         raise TypeError("Parsed CLI profile must be a string or None")
-    return asyncio.run(main(profile_override=profile_override))
+    if playback_during_recording_override is not None and not isinstance(
+        playback_during_recording_override, bool
+    ):
+        raise TypeError("Parsed playback override must be a bool or None")
+    if playback_during_recording_override is None:
+        return asyncio.run(main(profile_override=profile_override))
+    return asyncio.run(
+        main(
+            profile_override=profile_override,
+            playback_during_recording_override=playback_during_recording_override,
+        )
+    )
 
 
 if __name__ == "__main__":
