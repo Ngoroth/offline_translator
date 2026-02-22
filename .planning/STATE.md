@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-20)
 
 Current Phase: 2 of 3 (Deploy to Pi)
 Current Plan: 1
-Total Plans in Phase: TBD
-Status: Ready for Planning
-Last activity: 2026-02-22 - Completed 01.2-02-PLAN.md
+Total Plans in Phase: 1
+Status: Phase Complete
+Last activity: 2026-02-22 - Completed 02-01-PLAN.md
 
-Progress: [#########-] 90%
+Progress: [##########] 100%
 
 ## Performance Metrics
 
@@ -42,6 +42,7 @@ Progress: [#########-] 90%
 | Phase 01.1 P01 | 4 min | 3 tasks | 6 files |
 | Phase 01.2 P01 | 14 min | 3 tasks | 3 files |
 | Phase 01.2 P02 | 2 min | 3 tasks | 3 files |
+| Phase 02 P01 | 3 min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -60,6 +61,8 @@ Recent decisions affecting current work:
 - [Phase 01.2]: PTT release remains the unlock point and queued chunks flush in FIFO order.
 - [Phase 01.2]: Use --playback-during-recording/--no-playback-during-recording with default None so unset CLI preserves profile defaults.
 - [Phase 01.2]: Apply playback override only to in-memory settings after load_settings and never persist it to config.yaml.
+- [Phase 02]: Canonical deploy target path fixed to /home/pi/offline_translator for rsync and remote uv sync.
+- [Phase 02]: Deploy preflight fails fast when remote uv is missing and prints install plus verification guidance.
 
 ### Roadmap Evolution
 
@@ -77,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-22
-Stopped at: Completed 01.2-02-PLAN.md
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None

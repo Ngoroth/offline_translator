@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: CLI Profile Flag** - Add `--profile` flag to select config without editing files (completed 2026-02-21)
 - [x] **Phase 01.1: Fix Windows audio backend selection for desktop profile** - Ensure `desktop_rtx4070` uses Windows recorder backend while `rpi_deployment` keeps ALSA `arecord` (completed 2026-02-21)
 - [x] **Phase 01.2: Investigate VAD-triggered translation playback before PTT release during speech pauses** - Gate early playback while keeping speaker mode default-off and headset mode opt-in (completed 2026-02-22)
-- [ ] **Phase 2: Deploy to Pi** - One-command deployment to Raspberry Pi via rsync
+- [x] **Phase 2: Deploy to Pi** - One-command deployment to Raspberry Pi via rsync (completed 2026-02-22)
 
 ## Phase Details
 
@@ -68,10 +68,10 @@ Plans:
   3. After file sync completes, `uv sync` runs automatically on Pi to install dependencies
   4. Script displays progress during sync and clear success/failure status at completion
   5. SSH connection errors are reported with actionable guidance
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 02-01: [Brief description of first plan]
+- [x] 02-01-PLAN.md - Implement staged `scripts/deploy.py` orchestration with rsync excludes, remote `uv sync`, tests, and deploy usage docs
 
 ## Progress
 
@@ -83,4 +83,4 @@ Phases execute in numeric order: 1 → 01.1 → 01.2 → 2
 | 1. CLI Profile Flag | 2/2 | Complete    | 2026-02-21 |
 | 1.1. Windows Audio Backend Selection | 1/1 | Complete | 2026-02-21 |
 | 1.2. VAD Playback Timing Gate | 2/2 | Complete | 2026-02-22 |
-| 2. Deploy to Pi | 0/TBD | Not started | - |
+| 2. Deploy to Pi | 1/1 | Complete | 2026-02-22 |

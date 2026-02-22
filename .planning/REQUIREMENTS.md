@@ -13,11 +13,11 @@
 
 ### Deployment
 
-- [ ] **DEPLOY-01**: User can run `uv run scripts/deploy.py` to sync codebase to Raspberry Pi
-- [ ] **DEPLOY-02**: Deploy script excludes `.venv/`, `__pycache__/`, `.git/`, `logs/` from sync
-- [ ] **DEPLOY-03**: Deploy script runs `uv sync` on Pi after file sync completes
-- [ ] **DEPLOY-04**: Deploy script connects to Pi via SSH at `pi@translator`
-- [ ] **DEPLOY-05**: Deploy script shows progress/success/failure status
+- [x] **DEPLOY-01**: User can run `uv run scripts/deploy.py` to sync codebase to Raspberry Pi
+- [x] **DEPLOY-02**: Deploy script excludes `.venv/`, `__pycache__/`, `.git/`, `logs/` from sync
+- [x] **DEPLOY-03**: Deploy script runs `uv sync` on Pi after file sync completes
+- [x] **DEPLOY-04**: Deploy script connects to Pi via SSH at `pi@translator`
+- [x] **DEPLOY-05**: Deploy script shows progress/success/failure status
 
 ### Audio Backend Selection
 
@@ -51,11 +51,11 @@
 | CLI-01 | Phase 1 | Complete |
 | CLI-02 | Phase 1 | Complete |
 | CLI-03 | Phase 1 | Complete |
-| DEPLOY-01 | Phase 2 | Pending |
-| DEPLOY-02 | Phase 2 | Pending |
-| DEPLOY-03 | Phase 2 | Pending |
-| DEPLOY-04 | Phase 2 | Pending |
-| DEPLOY-05 | Phase 2 | Pending |
+| DEPLOY-01 | Phase 2 | Complete |
+| DEPLOY-02 | Phase 2 | Complete |
+| DEPLOY-03 | Phase 2 | Complete |
+| DEPLOY-04 | Phase 2 | Complete |
+| DEPLOY-05 | Phase 2 | Complete |
 | AUDIO-01 | Phase 01.1 | Complete |
 | AUDIO-02 | Phase 01.1 | Complete |
 | AUDIO-03 | Phase 01.1 | Complete |
