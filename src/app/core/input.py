@@ -202,7 +202,7 @@ class EvdevInput(BaseInput):
 
     async def _read_events(self) -> None:
         try:
-            import evdev  # pyright: ignore[reportMissingImports]
+            import evdev
         except ImportError:
             logger.error("evdev library not found. Install with: pip install evdev")
             return

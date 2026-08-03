@@ -12,6 +12,8 @@ from app.core.config import STTSettings, LLMSettings, TTSSettings
 from app.services.stt import STTService
 from app.services.llm import LLMService, LLMModelLoadError
 from app.services.tts import TTSService
+from tests.mocks.mock_input import MockInput
+from tests.mocks.mock_audio import MockAudioRecorder, MockAudioPlayer
 
 
 @pytest.mark.smoke
@@ -131,8 +133,6 @@ class TestMockInputInit:
 
     def test_mock_input_start(self):
         """MockInput.start() should succeed."""
-        from tests.mocks.mock_input import MockInput  # noqa: PLC0415
-
         mock_input = MockInput()
         mock_input.start()  # Should not raise
 
@@ -141,8 +141,6 @@ class TestMockInputInit:
 
     def test_mock_input_trigger_press_release(self):
         """MockInput should track press/release states."""
-        from tests.mocks.mock_input import MockInput  # noqa: PLC0415
-
         mock_input = MockInput()
 
         mock_input.trigger_press("a")
@@ -159,16 +157,12 @@ class TestAudioComponentsInit:
 
     async def test_mock_audio_recorder_init(self):
         """MockAudioRecorder should initialize with sample rate."""
-        from tests.mocks.mock_audio import MockAudioRecorder  # noqa: PLC0415
-
         recorder = MockAudioRecorder(sample_rate=16000)
 
         assert recorder.sample_rate == 16000
 
     async def test_mock_audio_player_init(self):
         """MockAudioPlayer should initialize with sample rate."""
-        from tests.mocks.mock_audio import MockAudioPlayer  # noqa: PLC0415
-
         player = MockAudioPlayer(sample_rate=16000)
 
         assert player.sample_rate == 16000

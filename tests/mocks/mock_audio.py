@@ -38,11 +38,6 @@ class MockAudioRecorder(AudioRecorder):
     def get_last_chunk(self, num_samples: int) -> NDArray[np.float32]:
         return np.array([], dtype=np.float32)
 
-    def _callback(
-        self, _indata: NDArray[np.float32], _frames: int, _time: object, _status: object
-    ) -> None:
-        pass
-
     def inject_chunk(self, chunk: NDArray[np.float32]) -> None:
         """Simulate audio data arrival."""
         if self.recording:

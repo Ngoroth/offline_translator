@@ -37,10 +37,12 @@ async def test_input():
             if input_handler.is_pressed("b"):
                 logger.info(">> BUTTON B (KP_6) IS HELD DOWN")
 
-            # Wait for event
-            if not input_handler._press_queue.empty():
-                role = await input_handler.wait_for_press()
+            # Wait for event using public API (non-blocking poll with timeout)
+            try:
+                role = await asyncio.wait_for(input_handler.wait_for_press(), timeout=0.1)
                 logger.info(f"!! EVENT DETECTED: Role {role} PRESSED !!")
+            except asyncio.TimeoutError:
+                pass
 
             await asyncio.sleep(0.1)
 
