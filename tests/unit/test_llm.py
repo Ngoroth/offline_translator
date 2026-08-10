@@ -64,7 +64,7 @@ async def test_translate_success(mock_settings: LLMSettings, mock_llama: MagicMo
     # Verify prompt structure
     call_args = mock_instance.create_chat_completion.call_args
     assert call_args.kwargs["messages"][0]["role"] == "system"
-    assert "interpreter" in call_args.kwargs["messages"][0]["content"]
+    assert "translator" in call_args.kwargs["messages"][0]["content"]
     assert call_args.kwargs["messages"][1]["role"] == "user"
     assert call_args.kwargs["messages"][1]["content"] == "Hello"
 

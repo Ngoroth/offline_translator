@@ -19,6 +19,11 @@ def _raise_stop_error() -> list[object]:
     raise RuntimeError("stop")
 
 
+class _StubSTT:
+    async def warmup(self) -> None:
+        return None
+
+
 def test_parse_cli_args_supports_profile_flag() -> None:
     args = app_main.parse_cli_args(["--profile", "rpi_deployment"])
 
@@ -250,7 +255,7 @@ async def test_main_uses_profile_platform_to_create_recorder(
 
     def stt_stub(_stt_settings: object) -> object:
         del _stt_settings
-        return object()
+        return _StubSTT()
 
     def llm_stub(_llm_settings: object) -> object:
         del _llm_settings
@@ -395,7 +400,7 @@ async def test_main_applies_runtime_playback_override_only_in_memory(
 
     def stt_stub(_stt_settings: object) -> object:
         del _stt_settings
-        return object()
+        return _StubSTT()
 
     def llm_stub(_llm_settings: object) -> object:
         del _llm_settings

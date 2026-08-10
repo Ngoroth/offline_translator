@@ -159,6 +159,12 @@ async def main(
         llm_service = LLMService(settings.llm)
         tts_service = TTSService(settings.tts, extra_models=list(tts_models))
 
+        # Preload and warm up STT so the first PTT cycle does not pay the
+        # lazy-load / cold-inference penalty.
+        logger.info("Warming up STT model...")
+        await stt_service.warmup()
+        logger.info("STT warmup finished")
+
         # 5. Initialize Pipeline and Orchestrator
         logger.info("Initializing Orchestrator...")
         pipeline = TranslationPipeline(

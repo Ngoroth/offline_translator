@@ -5,6 +5,7 @@ description = "Async Offline Speech-to-Speech Translator (RPi 5)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "evdev>=1.6.1; sys_platform == 'linux'",
     "faster-whisper>=1.2.1",
     "llama-cpp-python>=0.3.34",
     "loguru>=0.7.3",

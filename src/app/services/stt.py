@@ -74,6 +74,30 @@ class STTService:
                     ) from e
             return self._model
 
+    async def warmup(self) -> None:
+        """Load the model and run one full transcription to initialize inference.
+
+        Moves the slow lazy model load and first-call graph initialization out
+        of the critical path so the first real PTT cycle starts warm.
+        Uses silence (not noise) so whisper terminates immediately instead of
+        hallucinating indefinitely, and is wrapped in a timeout so warmup can
+        never hang startup.
+        """
+        try:
+            model = await self._get_model()
+            samples = np.zeros(16000, dtype=np.float32)
+
+            def _run_warmup() -> None:
+                # Bypass the VAD filter so the decode graph is fully initialized.
+                segments, _ = model.transcribe(samples, beam_size=1, vad_filter=False)
+                for _segment in segments:
+                    pass
+
+            await asyncio.wait_for(asyncio.to_thread(_run_warmup), timeout=30)
+            logger.info("STT warmup complete")
+        except Exception as e:
+            logger.warning("STT warmup failed (will load lazily on first use): {}", e)
+
     async def transcribe(
         self, audio: np.ndarray, language: str | None = None, session_id: str | None = None
     ) -> str | None:

@@ -75,8 +75,8 @@ class LLMService:
             raise LLMError("Model not initialized")
 
         system_prompt = (
-            f"You are a helpful simultaneous interpreter from {source_lang} to {target_lang}. "
-            "Translate the user input directly. Do not add explanations."
+            f"You are a translator. Translate the user's message from {source_lang} "
+            f"to {target_lang}. Output ONLY the translation, nothing else."
         )
 
         messages: list[ChatCompletionRequestMessage] = [
