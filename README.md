@@ -33,7 +33,7 @@ High-performance, configurable offline speech-to-speech translator designed for 
    ```bash
    uv run python scripts/download_models.py
    ```
-   This downloads Qwen3 desktop (`4B`) and Raspberry Pi (`0.6B`) model files, plus Piper TTS voices.
+   This downloads Qwen3.5 desktop (`4B`) and Raspberry Pi (`0.8B`) model files, plus Piper TTS voices.
 
 ## Usage
 

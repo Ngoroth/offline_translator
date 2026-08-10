@@ -16,11 +16,10 @@ async def test_dual_speaker_pipeline_flow():
     """
     # 1. Setup Mocks
     settings = MagicMock()
-    settings.speaker_a_lang = "en"
-    settings.speaker_b_lang = "ru"
-    settings.speaker_a_voice = "voice_en"
-    settings.speaker_b_voice = "voice_ru"
-    settings.speakers = {}
+    settings.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_ru"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_en"),
+    }
     settings.vad.aggressiveness = 3
     settings.vad.threshold_ms = 500
     settings.audio.sample_rate = 16000

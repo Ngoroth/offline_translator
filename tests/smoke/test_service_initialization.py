@@ -136,18 +136,18 @@ class TestMockInputInit:
         mock_input = MockInput()
         mock_input.start()  # Should not raise
 
-        assert mock_input.pressed_state["a"] is False
-        assert mock_input.pressed_state["b"] is False
+        assert mock_input.pressed["a"] is False
+        assert mock_input.pressed["b"] is False
 
     def test_mock_input_trigger_press_release(self):
         """MockInput should track press/release states."""
         mock_input = MockInput()
 
         mock_input.trigger_press("a")
-        assert mock_input.is_pressed("a") is True
+        assert mock_input.pressed["a"] is True
 
         mock_input.trigger_release("a")
-        assert mock_input.is_pressed("a") is False
+        assert mock_input.pressed["a"] is False
 
 
 @pytest.mark.smoke

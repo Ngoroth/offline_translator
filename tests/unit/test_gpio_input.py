@@ -45,17 +45,12 @@ async def test_gpio_input_logic():
         role = await asyncio.wait_for(task, timeout=0.1)
         assert role == "a"
 
-        # 4. Check is_pressed
-        assert gpio_input.is_pressed("a") is True
-
-        # 5. Wait for Release (Role A)
+        # 4. Wait for Release (Role A)
         task_release = asyncio.create_task(gpio_input.wait_for_release("a"))
         mock_lgpio.simulate_release(handle, 17)
         await asyncio.wait_for(task_release, timeout=0.1)
 
-        assert gpio_input.is_pressed("a") is False
-
-        # 6. Role B
+        # 5. Role B
         task_b = asyncio.create_task(gpio_input.wait_for_press())
         mock_lgpio.simulate_press(handle, 27)
         role = await asyncio.wait_for(task_b, timeout=0.1)

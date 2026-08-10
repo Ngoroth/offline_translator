@@ -19,7 +19,10 @@ async def test_integration_cancellation_aborts_pipeline():
     settings.vad.aggressiveness = 3
     settings.vad.threshold_ms = 500
     settings.audio.sample_rate = 16000
-    settings.speakers = {}
+    settings.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_ru"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_en"),
+    }
 
     # Mock Recorder/Player
     recorder = MagicMock()

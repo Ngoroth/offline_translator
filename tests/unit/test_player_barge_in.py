@@ -63,11 +63,10 @@ def test_stop_is_thread_safe(audio_player: AudioPlayer) -> None:
 @pytest.mark.asyncio
 async def test_player_worker_defers_listening_chunks_until_release() -> None:
     settings = MagicMock()
-    settings.speakers = {}
-    settings.speaker_a_lang = "en"
-    settings.speaker_b_lang = "ru"
-    settings.speaker_a_voice = "en_voice"
-    settings.speaker_b_voice = "ru_voice"
+    settings.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="ru_voice"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="en_voice"),
+    }
     settings.vad.aggressiveness = 3
     settings.vad.threshold_ms = 500
     settings.vad.auto_harvest = True

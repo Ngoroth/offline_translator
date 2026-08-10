@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings
+from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings, SpeakerSettings
 from app.orchestrator.pipeline import TranslationPipeline
 from tests.mocks.mock_audio import MockAudioRecorder, MockAudioPlayer
 
@@ -62,6 +62,14 @@ class TestErrorResilience:
             stt=STTSettings(model_path=str(stt_path)),
             llm=LLMSettings(model_path=str(llm_path)),
             tts=TTSSettings(model_path=str(tts_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_path)
+                ),
+            },
         )
 
         stt = STTService(settings.stt)
@@ -138,6 +146,14 @@ class TestErrorResilience:
             stt=STTSettings(model_path=str(stt_path)),
             llm=LLMSettings(model_path=str(llm_path)),
             tts=TTSSettings(model_path=str(tts_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_path)
+                ),
+            },
         )
 
         stt = STTService(settings.stt)
@@ -221,6 +237,14 @@ class TestErrorResilience:
             stt=STTSettings(model_path=str(stt_path)),
             llm=LLMSettings(model_path=str(llm_path)),
             tts=TTSSettings(model_path=str(tts_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_path)
+                ),
+            },
         )
 
         stt = STTService(settings.stt)
@@ -296,6 +320,14 @@ class TestErrorResilience:
             stt=STTSettings(model_path=str(stt_path)),
             llm=LLMSettings(model_path=str(llm_path)),
             tts=TTSSettings(model_path=str(tts_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_path)
+                ),
+            },
         )
 
         stt = STTService(settings.stt)

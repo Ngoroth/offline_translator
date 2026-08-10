@@ -45,8 +45,8 @@ class TestGoldenPath:
         assert result is not None
 
     @pytest.mark.asyncio
-    async def test_llm_translation_with_real_qwen3(self, llm_model_path: Path):
-        """Test LLM service with real Qwen3-0.6B model."""
+    async def test_llm_translation_with_real_qwen3_5(self, llm_model_path: Path):
+        """Test LLM service with real Qwen3.5-0.8B model."""
         llm = LLMService(
             LLMSettings(
                 model_path=str(llm_model_path),
@@ -64,7 +64,7 @@ class TestGoldenPath:
 
         assert result is not None
         assert len(result) > 0
-        # Qwen3 should produce some Russian text
+        # Qwen3.5 should produce some Russian text
 
     @pytest.mark.asyncio
     async def test_tts_synthesis_with_real_piper(self, tts_model_path: Path):

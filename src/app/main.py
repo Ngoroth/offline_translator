@@ -10,12 +10,10 @@ from loguru import logger
 
 from app.core.audio import AudioPlayer, AudioRecorder
 from app.core.audio.devices import (
-    get_default_input_device,
-    get_default_output_device,
     list_audio_devices,
-    resolve_device,
+    resolve_input_device,
+    resolve_output_device,
 )
-from app.core.audio.recorder import AudioDeviceError
 from app.core.audio.recorder_selector import select_recorder_factory
 from app.core.config import AppSettings, load_settings
 from app.core.input import BaseInput, EvdevInput, GPIOInput, KeyboardInput, Role
@@ -54,11 +52,9 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
     """
     HAL Factory: Selects the appropriate input handler based on configuration.
     """
-    # Use the new dual speaker keys from config
-    # Convert keys to str for keyboard/evdev inputs
+    # Build the dual speaker key map from the speakers config
     key_map_str: dict[Role, str] = {
-        "a": str(settings.speaker_a_key),
-        "b": str(settings.speaker_b_key),
+        role: str(speaker.key) for role, speaker in settings.speakers.items() if role in ("a", "b")
     }
 
     if settings.input_mode == "keyboard":
@@ -115,34 +111,14 @@ async def main(
         for dev in devices:
             logger.debug(f"  [{dev.index}] {dev.name} (in={dev.is_input}, out={dev.is_output})")
 
-        input_device = resolve_device(
-            settings.audio.input_device or settings.audio.input_device_index,
-            is_input=True,
+        input_device = resolve_input_device(
+            settings.audio.input_device or settings.audio.input_device_index
         )
-        if input_device is None:
-            default_input = get_default_input_device()
-            if default_input is None:
-                raise AudioDeviceError(
-                    message="No input audio device available",
-                    device=None,
-                    suggestion="Connect a microphone and restart the application",
-                )
-            input_device = default_input.index
         logger.info(f"Input device resolved: {input_device}")
 
-        output_device = resolve_device(
-            settings.audio.output_device or settings.audio.output_device_index,
-            is_input=False,
+        output_device = resolve_output_device(
+            settings.audio.output_device or settings.audio.output_device_index
         )
-        if output_device is None:
-            default_output = get_default_output_device()
-            if default_output is None:
-                raise AudioDeviceError(
-                    message="No output audio device available",
-                    device=None,
-                    suggestion="Connect speakers/headphones and restart the application",
-                )
-            output_device = default_output.index
         logger.info(f"Output device resolved: {output_device}")
 
         # 3. Initialize Hardware
@@ -174,12 +150,7 @@ async def main(
         if settings.tts.model_path:
             tts_models.add(settings.tts.model_path)
 
-        # Add Dual Speaker voices (only if paths are configured)
-        if settings.speaker_a_voice:
-            tts_models.add(settings.speaker_a_voice)
-        if settings.speaker_b_voice:
-            tts_models.add(settings.speaker_b_voice)
-
+        # Add per-speaker voices (target language voices for each role)
         for speaker in settings.speakers.values():
             if speaker.tts_model:
                 tts_models.add(speaker.tts_model)

@@ -49,25 +49,6 @@ async def test_keyboard_input_async_press() -> None:
         assert result == "a"
 
 
-def test_keyboard_input_state_tracking() -> None:
-    """Test is_pressed state tracking."""
-    with patch("pynput.keyboard.Listener"):
-        input_handler = KeyboardInput(key_map={"a": "space"})
-
-        # Simulate Press
-        mock_key = MagicMock()
-        mock_key.name = "space"
-
-        on_press = getattr(input_handler, "_on_press")
-        on_press(mock_key)
-        assert input_handler.is_pressed("a") is True
-
-        # Simulate Release
-        on_release = getattr(input_handler, "_on_release")
-        on_release(mock_key)
-        assert input_handler.is_pressed("a") is False
-
-
 def test_keyboard_input_key_matching() -> None:
     """Test robust key matching logic."""
     with patch("pynput.keyboard.Listener"):

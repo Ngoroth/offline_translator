@@ -9,7 +9,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.core.config import STTSettings, LLMSettings, TTSSettings, AppSettings
+from app.core.config import (
+    STTSettings,
+    LLMSettings,
+    TTSSettings,
+    AppSettings,
+    SpeakerSettings,
+)
 
 
 @pytest.fixture
@@ -89,10 +95,10 @@ def app_settings(
         tts=TTSSettings(
             model_path=mock_tts_model_path,
         ),
-        speaker_a_key="space",
-        speaker_b_key="alt_r",
-        speaker_a_lang="en",
-        speaker_b_lang="ru",
+        speakers={
+            "a": SpeakerSettings(key="space", from_lang="en", to_lang="ru"),
+            "b": SpeakerSettings(key="alt_r", from_lang="ru", to_lang="en"),
+        },
     )
 
 

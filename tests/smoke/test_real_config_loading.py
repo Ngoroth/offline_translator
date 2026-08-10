@@ -23,5 +23,7 @@ def test_load_real_config():
     assert settings.tts.model_path, "TTS model path is empty"
 
     # Check dual speaker config
-    assert settings.speaker_a_key
-    assert settings.speaker_b_key
+    assert settings.speakers["a"].key
+    assert settings.speakers["b"].key
+    assert settings.speakers["a"].from_lang
+    assert settings.speakers["b"].from_lang

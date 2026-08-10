@@ -69,17 +69,13 @@ class EvdevSettings(BaseModel):
     device_name: str | None = None  # e.g. "SIGMACHIP USB Keyboard"
 
 
-class InputSettings(BaseModel):
-    # Legacy PTT settings - use speaker_a_key/speaker_b_key in AppSettings instead
-    # TODO: Remove in future version when all configs migrated to new format
-    ptt_a: str | int = "space"
-    ptt_b: str | int = "alt"
-
-
 class SpeakerSettings(BaseModel):
+    """PTT key, language direction, and target-language voice for one speaker role."""
+
+    key: str | int = Field(default="space")
+    name: str | None = None
     from_lang: str = Field(..., min_length=1)
     to_lang: str = Field(..., min_length=1)
-    name: str | None = None
     tts_model: str | None = None
 
 
@@ -100,29 +96,17 @@ class AppSettings(BaseSettings):
     llm: LLMSettings
     tts: TTSSettings
     vad: VADSettings = VADSettings()
-    input: InputSettings = InputSettings()
     gpio: GPIOSettings = GPIOSettings()
     evdev: EvdevSettings = EvdevSettings()
     speakers: dict[str, SpeakerSettings] = {}
 
-    # Dual Speaker Role Settings
-    speaker_a_key: str | int = "space"
-    speaker_b_key: str | int = "alt_r"
-    speaker_a_lang: str = "en"
-    speaker_b_lang: str = "ru"
-
-    # Voice paths should be set to actual .onnx file paths in config.yaml
-    # Empty string means use the default TTS model from tts.model_path
-    speaker_a_voice: str = ""
-    speaker_b_voice: str = ""
-
     @model_validator(mode="after")
     def validate_speaker_keys(self) -> "AppSettings":
-        """Ensure speaker keys are distinct."""
-        if str(self.speaker_a_key).lower() == str(self.speaker_b_key).lower():
-            raise ValueError(
-                f"Speaker keys must be distinct. Both are set to '{self.speaker_a_key}'"
-            )
+        """Ensure all configured speaker PTT keys are distinct."""
+        keys = [str(speaker.key).lower() for speaker in self.speakers.values()]
+        if len(keys) != len(set(keys)):
+            duplicates = sorted({key for key in keys if keys.count(key) > 1})
+            raise ValueError(f"Speaker keys must be distinct. Duplicates: {duplicates}")
         return self
 
 

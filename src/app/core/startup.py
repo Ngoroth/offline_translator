@@ -9,10 +9,11 @@ import sys
 from pathlib import Path
 
 from app.core.audio.devices import (
-    get_default_input_device,
-    get_default_output_device,
     list_audio_devices,
+    resolve_input_device,
+    resolve_output_device,
 )
+from app.core.audio.recorder import AudioDeviceError
 from app.core.config import AppSettings
 
 
@@ -82,19 +83,13 @@ class StartupVerifier:
             if not p.exists():
                 missing.append(str(p))
 
-        # Speaker A voice (optional)
-        speaker_a = self.settings.speaker_a_voice
-        if speaker_a:
-            p = Path(speaker_a)
-            if not p.exists():
-                missing.append(str(p))
-
-        # Speaker B voice (optional)
-        speaker_b = self.settings.speaker_b_voice
-        if speaker_b:
-            p = Path(speaker_b)
-            if not p.exists():
-                missing.append(str(p))
+        # Per-speaker voices (target language voices)
+        for speaker in self.settings.speakers.values():
+            tts_path = speaker.tts_model
+            if tts_path:
+                p = Path(tts_path)
+                if not p.exists():
+                    missing.append(str(p))
 
         if missing:
             print("ERROR: Missing model files:")
@@ -114,10 +109,10 @@ class StartupVerifier:
             True if both input and output devices are available, False otherwise.
             Sets exit_code to 2 on failure.
         """
-        input_dev = get_default_input_device()
-        output_dev = get_default_output_device()
-
-        if input_dev is None or output_dev is None:
+        try:
+            _ = resolve_input_device(None)
+            _ = resolve_output_device(None)
+        except AudioDeviceError:
             print("ERROR: No audio devices available")
             print()
             print("Available devices:")

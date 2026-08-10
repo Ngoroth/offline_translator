@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 import sounddevice as sd
 from loguru import logger
 
+from app.core.audio.recorder import AudioDeviceError
+
 if TYPE_CHECKING:
     from typings.sounddevice import DeviceInfo
 
@@ -108,3 +110,35 @@ def resolve_device(device_name: str | int | None, is_input: bool) -> int | str |
         f"Device '{device_name}' not found in enumeration. Using as-is (may be ALSA device name)."
     )
     return device_name
+
+
+def resolve_input_device(preferred: str | int | None) -> int | str:
+    """Resolve the input device to use, falling back to the system default.
+
+    Raises:
+        AudioDeviceError: if no input device is available.
+    """
+    resolved = resolve_device(preferred, is_input=True)
+    if resolved is not None:
+        return resolved
+    raise AudioDeviceError(
+        message="No input audio device available",
+        device=None,
+        suggestion="Connect a microphone and restart the application",
+    )
+
+
+def resolve_output_device(preferred: str | int | None) -> int | str:
+    """Resolve the output device to use, falling back to the system default.
+
+    Raises:
+        AudioDeviceError: if no output device is available.
+    """
+    resolved = resolve_device(preferred, is_input=False)
+    if resolved is not None:
+        return resolved
+    raise AudioDeviceError(
+        message="No output audio device available",
+        device=None,
+        suggestion="Connect speakers/headphones and restart the application",
+    )

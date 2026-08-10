@@ -19,7 +19,7 @@ profiles:
       beam_size: 5
 
     llm:
-      model_path: "models/llm/Qwen3-4B-Instruct-2507-Q4_K_M.gguf"
+      model_path: "models/llm/Qwen3.5-4B-Q4_K_M.gguf"
       n_gpu_layers: -1
       n_ctx: 4096
       thread_count: 8
@@ -31,26 +31,19 @@ profiles:
       threshold_ms: 500
       aggressiveness: 3
 
-    # Dual Speaker Settings (New Format)
-    speaker_a_key: "space"
-    speaker_b_key: "alt"
-    speaker_a_voice: "models/tts/en_US-libritts_r-medium.onnx"
-    speaker_b_voice: "models/tts/ru_RU-denis-medium.onnx"
-
-    input:
-      ptt_a: "space"
-      ptt_b: "alt"
-
+    # Dual Speaker Settings (single source of truth)
     speakers:
       a:
+        key: "space"
         name: "Speaker A"
-        from_lang: "English"
-        to_lang: "Russian"
+        from_lang: "en"
+        to_lang: "ru"
         tts_model: "models/tts/ru_RU-denis-medium.onnx"
       b:
+        key: "alt"
         name: "Speaker B"
-        from_lang: "Russian"
-        to_lang: "English"
+        from_lang: "ru"
+        to_lang: "en"
         tts_model: "models/tts/en_US-libritts_r-medium.onnx"
 
   rpi_deployment:
@@ -71,8 +64,8 @@ profiles:
       beam_size: 1
 
     llm:
-      # Using smaller 0.6B model for faster inference on Raspberry Pi (~400MB vs 1.2GB)
-      model_path: "models/llm/Qwen3-0.6B-Q8_0.gguf"
+      # Using smaller 0.8B model for faster inference on Raspberry Pi (~500MB vs 1.2GB)
+      model_path: "models/llm/Qwen3.5-0.8B-Q4_K_M.gguf"
       n_gpu_layers: 0
       n_ctx: 512  # Reduced for faster inference (translation doesn't need large context)
       thread_count: 8  # Use all available threads on Pi 4 (4 cores * 2 threads)
@@ -98,24 +91,17 @@ profiles:
       device_path: "/dev/input/event1"
       device_name: "SIGMACHIP USB Keyboard"
 
-    # Dual Speaker Settings
-    speaker_a_key: "KEY_KP5"  # Numpad 5
-    speaker_b_key: "KEY_KP6"  # Numpad 6
-    speaker_a_voice: "models/tts/ru_RU-denis-medium.onnx"  # Target language voice
-    speaker_b_voice: "models/tts/en_US-libritts_r-medium.onnx"  # Target language voice
-
-    input:
-      ptt_a: "kp5"
-      ptt_b: "kp6"
-
+    # Dual Speaker Settings (single source of truth)
     speakers:
       a:
+        key: "KEY_KP5"  # Numpad 5
         name: "Speaker A"
-        from_lang: "English"
-        to_lang: "Russian"
-        tts_model: "models/tts/ru_RU-denis-medium.onnx"
+        from_lang: "en"
+        to_lang: "ru"
+        tts_model: "models/tts/ru_RU-denis-medium.onnx"  # Target language voice
       b:
+        key: "KEY_KP6"  # Numpad 6
         name: "Speaker B"
-        from_lang: "Russian"
-        to_lang: "English"
-        tts_model: "models/tts/en_US-libritts_r-medium.onnx"
+        from_lang: "ru"
+        to_lang: "en"
+        tts_model: "models/tts/en_US-libritts_r-medium.onnx"  # Target language voice

@@ -11,13 +11,12 @@ async def test_tts_voice_selection_verification():
     """
     # 1. Setup Config
     settings = MagicMock()
-    settings.speaker_a_lang = "en"
-    settings.speaker_b_lang = "ru"
-    # Role A speaks En -> Ru (Output Voice: Ru)
-    settings.speaker_b_voice = "voice_model_ru.onnx"
-    # Role B speaks Ru -> En (Output Voice: En)
-    settings.speaker_a_voice = "voice_model_en.onnx"
-    settings.speakers = {}
+    settings.speakers = {
+        # Role A speaks En -> Ru (Output Voice: Ru)
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_model_ru.onnx"),
+        # Role B speaks Ru -> En (Output Voice: En)
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_model_en.onnx"),
+    }
     settings.vad.aggressiveness = 3
     settings.vad.threshold_ms = 500
     settings.audio.sample_rate = 16000

@@ -13,11 +13,10 @@ async def test_pipeline_start_session_config():
     # Mock Settings
     settings = MagicMock()
     # Speaker A: En -> Ru (Voice Ru)
-    settings.speaker_a_lang = "en"
-    settings.speaker_b_lang = "ru"
-    settings.speaker_a_voice = "voice_en"
-    settings.speaker_b_voice = "voice_ru"
-    settings.speakers = {}  # Ensure fallback to new logic if we were using old one
+    settings.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_ru"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_en"),
+    }
     settings.vad.aggressiveness = 3
     settings.vad.threshold_ms = 500
     settings.audio.sample_rate = 16000
@@ -54,7 +53,7 @@ async def test_pipeline_start_session_config():
     )
     await pipeline.start_session(role="b")
 
-    # Assert B - for role "b", target is speaker_a_lang (en), so voice should be speaker_a_voice
+    # Assert B - for role "b", target is speakers["b"].to_lang (en), so voice should be speakers["b"].tts_model
     pipeline.session_manager.start_session.assert_called_with(
         source_lang="ru", target_lang="en", tts_voice="voice_en"
     )

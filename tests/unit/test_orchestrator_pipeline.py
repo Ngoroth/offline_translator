@@ -8,12 +8,11 @@ from app.orchestrator.session import SessionState
 @pytest.fixture
 def mock_services() -> dict[str, MagicMock | AsyncMock]:
     mock_settings = MagicMock()
-    mock_settings.speakers = {}
     # Mock Dual Speaker fields
-    mock_settings.speaker_a_lang = "en"
-    mock_settings.speaker_b_lang = "ru"
-    mock_settings.speaker_a_voice = "voice_en"
-    mock_settings.speaker_b_voice = "voice_ru"
+    mock_settings.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_ru"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_en"),
+    }
 
     mock_settings.vad = MagicMock()
     mock_settings.vad.aggressiveness = 3

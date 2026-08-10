@@ -73,32 +73,12 @@ class TranslationPipeline:
             await self.stop_session()
 
         # Determine configuration based on role
-        source_lang = self.settings.speaker_a_lang  # Default to role A
-        target_lang = self.settings.speaker_b_lang
-        tts_voice: str | None = None
-
-        if role == "a":
-            source_lang = self.settings.speaker_a_lang
-            target_lang = self.settings.speaker_b_lang
-            # TTS voice should match the TARGET language (what we're translating TO)
-            # For speaker A (EN->RU), we need Russian TTS
-            tts_voice = self.settings.speaker_b_voice
-            if not tts_voice and "a" in self.settings.speakers:
-                tts_voice = self.settings.speakers["a"].tts_model
-        elif role == "b":
-            source_lang = self.settings.speaker_b_lang
-            target_lang = self.settings.speaker_a_lang
-            # TTS voice should match the TARGET language (what we're translating TO)
-            # For speaker B (RU->EN), we need English TTS
-            tts_voice = self.settings.speaker_a_voice
-            if not tts_voice and "b" in self.settings.speakers:
-                tts_voice = self.settings.speakers["b"].tts_model
-        elif role in self.settings.speakers:
-            # Fallback for other roles if defined in legacy speakers dict
-            speaker = self.settings.speakers[role]
-            source_lang = speaker.from_lang
-            target_lang = speaker.to_lang
-            tts_voice = speaker.tts_model
+        speaker = self.settings.speakers.get(role)
+        if speaker is None:
+            raise ValueError(f"Unknown speaker role: {role}")
+        source_lang = speaker.from_lang
+        target_lang = speaker.to_lang
+        tts_voice = speaker.tts_model
 
         # Start session via manager (returns configured Session object)
         self.session = self.session_manager.start_session(

@@ -183,9 +183,10 @@ async def test_main_uses_profile_platform_to_create_recorder(
             output_device_index=None,
         )
         tts = SimpleNamespace(model_path="tts.onnx")
-        speaker_a_voice = ""
-        speaker_b_voice = ""
-        speakers: dict[str, object] = {}
+        speakers: dict[str, object] = {
+            "a": SimpleNamespace(key="space", tts_model="tts_ru.onnx"),
+            "b": SimpleNamespace(key="alt", tts_model="tts_en.onnx"),
+        }
         stt = SimpleNamespace()
         llm = SimpleNamespace()
 
@@ -230,16 +231,13 @@ async def test_main_uses_profile_platform_to_create_recorder(
     def list_devices_stub() -> list[object]:
         return []
 
-    def resolve_device_stub(_value: str | int | None, is_input: bool) -> None:
+    def resolve_input_stub(_value: str | int | None) -> int:
         del _value
-        del is_input
-        return None
+        return 3
 
-    def default_input_stub() -> SimpleNamespace:
-        return SimpleNamespace(index=3)
-
-    def default_output_stub() -> SimpleNamespace:
-        return SimpleNamespace(index=5)
+    def resolve_output_stub(_value: str | int | None) -> int:
+        del _value
+        return 5
 
     def input_handler_stub(_settings: object) -> StubInputHandler:
         del _settings
@@ -285,9 +283,8 @@ async def test_main_uses_profile_platform_to_create_recorder(
     monkeypatch.setattr(app_main, "_get_current_profile_key", current_profile_stub)
     monkeypatch.setattr(app_main, "StartupVerifier", StubVerifier)
     monkeypatch.setattr(app_main, "list_audio_devices", list_devices_stub)
-    monkeypatch.setattr(app_main, "resolve_device", resolve_device_stub)
-    monkeypatch.setattr(app_main, "get_default_input_device", default_input_stub)
-    monkeypatch.setattr(app_main, "get_default_output_device", default_output_stub)
+    monkeypatch.setattr(app_main, "resolve_input_device", resolve_input_stub)
+    monkeypatch.setattr(app_main, "resolve_output_device", resolve_output_stub)
     monkeypatch.setattr(app_main, "get_input_handler", input_handler_stub)
     monkeypatch.setattr(app_main, "select_recorder_factory", fake_select_recorder_factory)
     monkeypatch.setattr(app_main, "AudioPlayer", player_stub)
@@ -327,9 +324,10 @@ async def test_main_applies_runtime_playback_override_only_in_memory(
             playback_during_recording=False,
         )
         tts = SimpleNamespace(model_path="tts.onnx")
-        speaker_a_voice = ""
-        speaker_b_voice = ""
-        speakers: dict[str, object] = {}
+        speakers: dict[str, object] = {
+            "a": SimpleNamespace(key="space", tts_model="tts_ru.onnx"),
+            "b": SimpleNamespace(key="alt", tts_model="tts_en.onnx"),
+        }
         stt = SimpleNamespace()
         llm = SimpleNamespace()
 
@@ -378,16 +376,13 @@ async def test_main_applies_runtime_playback_override_only_in_memory(
     def list_devices_stub() -> list[object]:
         return []
 
-    def resolve_device_stub(_value: str | int | None, is_input: bool) -> None:
+    def resolve_input_stub(_value: str | int | None) -> int:
         del _value
-        del is_input
-        return None
+        return 3
 
-    def default_input_stub() -> SimpleNamespace:
-        return SimpleNamespace(index=3)
-
-    def default_output_stub() -> SimpleNamespace:
-        return SimpleNamespace(index=5)
+    def resolve_output_stub(_value: str | int | None) -> int:
+        del _value
+        return 5
 
     def input_handler_stub(_settings: object) -> StubInputHandler:
         del _settings
@@ -432,9 +427,8 @@ async def test_main_applies_runtime_playback_override_only_in_memory(
     monkeypatch.setattr(app_main, "load_settings", load_settings_stub)
     monkeypatch.setattr(app_main, "StartupVerifier", StubVerifier)
     monkeypatch.setattr(app_main, "list_audio_devices", list_devices_stub)
-    monkeypatch.setattr(app_main, "resolve_device", resolve_device_stub)
-    monkeypatch.setattr(app_main, "get_default_input_device", default_input_stub)
-    monkeypatch.setattr(app_main, "get_default_output_device", default_output_stub)
+    monkeypatch.setattr(app_main, "resolve_input_device", resolve_input_stub)
+    monkeypatch.setattr(app_main, "resolve_output_device", resolve_output_stub)
     monkeypatch.setattr(app_main, "get_input_handler", input_handler_stub)
     monkeypatch.setattr(app_main, "select_recorder_factory", fake_select_recorder_factory)
     monkeypatch.setattr(app_main, "AudioPlayer", player_stub)

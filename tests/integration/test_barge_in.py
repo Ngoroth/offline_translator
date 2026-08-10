@@ -28,10 +28,6 @@ class MockInput(BaseInput):
         await self.release_event.wait()
 
     @override
-    def is_pressed(self, role: Role) -> bool:
-        return False
-
-    @override
     def start(self) -> None:
         pass
 
@@ -50,11 +46,10 @@ class MockInput(BaseInput):
 @pytest.fixture
 def mock_settings() -> MagicMock:
     s = MagicMock()
-    s.speakers = {}
-    s.speaker_a_lang = "en"
-    s.speaker_b_lang = "ru"
-    s.speaker_a_voice = "voice_en"
-    s.speaker_b_voice = "voice_ru"
+    s.speakers = {
+        "a": MagicMock(from_lang="en", to_lang="ru", tts_model="voice_ru"),
+        "b": MagicMock(from_lang="ru", to_lang="en", tts_model="voice_en"),
+    }
     s.vad = MagicMock()
     s.vad.aggressiveness = 3
     s.vad.threshold_ms = 500

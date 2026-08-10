@@ -28,13 +28,6 @@ class BaseInput(ABC):
         pass
 
     @abstractmethod
-    def is_pressed(self, role: Role) -> bool:
-        """
-        Check if the button for the given role is currently held down.
-        """
-        pass
-
-    @abstractmethod
     def start(self) -> None:
         """Start the input listener."""
         pass
@@ -45,30 +38,61 @@ class BaseInput(ABC):
         pass
 
 
-class KeyboardInput(BaseInput):
-    """Windows/Linux keyboard input using pynput (requires X server on Linux)."""
+class QueuedInput(BaseInput, ABC):
+    """Shared press/release machinery for queue-based input backends.
 
-    key_map: dict[Role, str]
+    Maintains per-role press state, an async press queue, and release events.
+    Backends call ``_notify_press`` / ``_notify_release`` from their listeners.
+    """
+
     pressed: dict[Role, bool]
     _press_queue: asyncio.Queue[Role]
     _release_events: dict[Role, asyncio.Event]
     _loop: asyncio.AbstractEventLoop
-    _listener: "pynput_keyboard.Listener | None"
 
-    def __init__(self, key_map: dict[Role, str]):
-        self.key_map = key_map
+    def __init__(self) -> None:
         self.pressed = {"a": False, "b": False}
         self._press_queue = asyncio.Queue()
         self._release_events = {"a": asyncio.Event(), "b": asyncio.Event()}
         # Ensure events are set initially (since not pressed)
         self._release_events["a"].set()
         self._release_events["b"].set()
-        self._listener = None
-
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
-            logger.warning("KeyboardInput initialized outside of running loop.")
+            self._loop = asyncio.get_event_loop()
+            logger.warning(f"{type(self).__name__} initialized outside of running loop.")
+
+    def _notify_press(self, role: Role) -> None:
+        if not self.pressed[role]:
+            self.pressed[role] = True
+            self._release_events[role].clear()
+            _ = self._loop.call_soon_threadsafe(self._press_queue.put_nowait, role)
+
+    def _notify_release(self, role: Role) -> None:
+        if self.pressed[role]:
+            self.pressed[role] = False
+            _ = self._loop.call_soon_threadsafe(self._release_events[role].set)
+
+    @override
+    async def wait_for_press(self) -> Role:
+        return await self._press_queue.get()
+
+    @override
+    async def wait_for_release(self, role: Role) -> None:
+        _ = await self._release_events[role].wait()
+
+
+class KeyboardInput(QueuedInput):
+    """Windows/Linux keyboard input using pynput (requires X server on Linux)."""
+
+    key_map: dict[Role, str]
+    _listener: "pynput_keyboard.Listener | None"
+
+    def __init__(self, key_map: dict[Role, str]):
+        super().__init__()
+        self.key_map = key_map
+        self._listener = None
 
     @override
     def start(self) -> None:
@@ -92,11 +116,7 @@ class KeyboardInput(BaseInput):
         try:
             role = self._get_role(key)
             if role:
-                if not self.pressed[role]:
-                    self.pressed[role] = True
-                    self._release_events[role].clear()
-                    # Notify async loop
-                    _ = self._loop.call_soon_threadsafe(self._press_queue.put_nowait, role)
+                self._notify_press(role)
         except Exception as e:
             logger.error(f"Input press error: {e}")
 
@@ -104,9 +124,7 @@ class KeyboardInput(BaseInput):
         try:
             role = self._get_role(key)
             if role:
-                if self.pressed[role]:
-                    self.pressed[role] = False
-                    _ = self._loop.call_soon_threadsafe(self._release_events[role].set)
+                self._notify_release(role)
         except Exception as e:
             logger.error(f"Input release error: {e}")
 
@@ -136,20 +154,8 @@ class KeyboardInput(BaseInput):
 
         return None
 
-    @override
-    async def wait_for_press(self) -> Role:
-        return await self._press_queue.get()
 
-    @override
-    async def wait_for_release(self, role: Role) -> None:
-        _ = await self._release_events[role].wait()
-
-    @override
-    def is_pressed(self, role: Role) -> bool:
-        return self.pressed.get(role, False)
-
-
-class EvdevInput(BaseInput):
+class EvdevInput(QueuedInput):
     """
     Linux evdev input for USB keyboards/numpads (headless, no X required).
     Uses the `evdev` library to read input events directly from /dev/input/eventX.
@@ -157,28 +163,16 @@ class EvdevInput(BaseInput):
 
     device_path: str
     key_map: dict[Role, str]
-    pressed: dict[Role, bool]
-    _press_queue: asyncio.Queue[Role]
-    _release_events: dict[Role, asyncio.Event]
     _loop: asyncio.AbstractEventLoop
     _reader_task: asyncio.Task[None] | None
     _stop_event: asyncio.Event
 
     def __init__(self, device_path: str, key_map: dict[Role, str]):
+        super().__init__()
         self.device_path = device_path
         self.key_map = key_map
-        self.pressed = {"a": False, "b": False}
-        self._press_queue = asyncio.Queue()
-        self._release_events = {"a": asyncio.Event(), "b": asyncio.Event()}
-        self._release_events["a"].set()
-        self._release_events["b"].set()
         self._reader_task = None
         self._stop_event = asyncio.Event()
-
-        try:
-            self._loop = asyncio.get_running_loop()
-        except RuntimeError:
-            logger.warning("EvdevInput initialized outside of running loop.")
 
     @override
     def start(self) -> None:
@@ -239,14 +233,9 @@ class EvdevInput(BaseInput):
 
                 # value: 1 = press, 0 = release, 2 = hold/repeat
                 if event.value == 1:  # Press
-                    if not self.pressed[role]:
-                        self.pressed[role] = True
-                        self._release_events[role].clear()
-                        await self._press_queue.put(role)
+                    self._notify_press(role)
                 elif event.value == 0:  # Release
-                    if self.pressed[role]:
-                        self.pressed[role] = False
-                        self._release_events[role].set()
+                    self._notify_release(role)
 
         except asyncio.CancelledError:
             pass
@@ -261,51 +250,26 @@ class EvdevInput(BaseInput):
                 return role
         return None
 
-    @override
-    async def wait_for_press(self) -> Role:
-        return await self._press_queue.get()
 
-    @override
-    async def wait_for_release(self, role: Role) -> None:
-        _ = await self._release_events[role].wait()
-
-    @override
-    def is_pressed(self, role: Role) -> bool:
-        return self.pressed.get(role, False)
-
-
-class GPIOInput(BaseInput):
+class GPIOInput(QueuedInput):
     """
     Raspberry Pi GPIO implementation using `lgpio`.
     Supports active low configuration (default for PTT).
     """
 
     pin_map: dict[Role, int]
-    pressed: dict[Role, bool]
     chip_id: int
     handle: int | None
-    _press_queue: asyncio.Queue[Role]
-    _release_events: dict[Role, asyncio.Event]
-    _loop: asyncio.AbstractEventLoop
     _last_event_time: dict[Role, float]
     debounce_ns: int
 
     def __init__(self, pin_map: dict[Role, int], chip_id: int = 0, debounce_ms: int = 50):
+        super().__init__()
         self.pin_map = pin_map
-        self.pressed = {"a": False, "b": False}
         self.chip_id = chip_id
         self.handle = None
-        self._press_queue = asyncio.Queue()
-        self._release_events = {"a": asyncio.Event(), "b": asyncio.Event()}
-        self._release_events["a"].set()
-        self._release_events["b"].set()
         self._last_event_time = {"a": 0.0, "b": 0.0}
         self.debounce_ns = debounce_ms * 1_000_000  # ms to ns
-
-        try:
-            self._loop = asyncio.get_running_loop()
-        except RuntimeError:
-            logger.warning("GPIOInput initialized outside of running loop.")
 
     @override
     def start(self) -> None:
@@ -354,7 +318,6 @@ class GPIOInput(BaseInput):
         """
         # Suppress unused variable warnings
         _ = chip
-        _ = timestamp
 
         role: Role | None = None
         for r, pin in self.pin_map.items():
@@ -374,28 +337,7 @@ class GPIOInput(BaseInput):
         self._last_event_time[role] = float(timestamp)
 
         # Assuming Active Low (0 = Pressed, 1 = Released)
-        # TODO: Make this configurable via GPIOSettings
-        is_pressed_now = level == 0
-
-        if is_pressed_now:
-            if not self.pressed[role]:
-                self.pressed[role] = True
-                self._release_events[role].clear()
-                # Notify main loop
-                _ = self._loop.call_soon_threadsafe(self._press_queue.put_nowait, role)
+        if level == 0:
+            self._notify_press(role)
         else:
-            if self.pressed[role]:
-                self.pressed[role] = False
-                _ = self._loop.call_soon_threadsafe(self._release_events[role].set)
-
-    @override
-    async def wait_for_press(self) -> Role:
-        return await self._press_queue.get()
-
-    @override
-    async def wait_for_release(self, role: Role) -> None:
-        _ = await self._release_events[role].wait()
-
-    @override
-    def is_pressed(self, role: Role) -> bool:
-        return self.pressed.get(role, False)
+            self._notify_release(role)

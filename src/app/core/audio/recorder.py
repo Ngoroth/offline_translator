@@ -21,44 +21,68 @@ class AudioDeviceError(Exception):
         super().__init__(f"{message} (device: {device}). {suggestion}")
 
 
-class AudioRecorder:
-    """
-    AudioRecorder implementation using native 'arecord' (ALSA) via subprocess.
-    This avoids PortAudio sample rate issues on Raspberry Pi by offloading resampling to ALSA tools.
-    """
+class BaseRecorder:
+    """Shared state, buffer, and chunk queue for audio recorders."""
 
     sample_rate: int
     device_index: int | str | None
-    process: subprocess.Popen[bytes] | None
     buffer: list[NDArray[np.float32]]
     _queue: asyncio.Queue[NDArray[np.float32]]
     recording: bool
-    _loop: asyncio.AbstractEventLoop
-    _read_thread: threading.Thread | None
+    _loop: asyncio.AbstractEventLoop | None
 
     def __init__(self, sample_rate: int = 16000, device_index: int | str | None = None):
         self.sample_rate = sample_rate
         self.device_index = device_index
-        self.process = None
         self.buffer = []
         self._queue = asyncio.Queue()
         self.recording = False
-        self._read_thread = None
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
-            logger.warning("AudioRecorder initialized outside of running loop.")
+            self._loop = None
+            logger.warning(f"{type(self).__name__} initialized outside of running loop.")
 
-    def start(self) -> None:
-        if self.recording:
-            return
-
+    def _reset(self) -> None:
+        """Drop buffered audio and pending queue chunks."""
         self.buffer = []
         while not self._queue.empty():
             try:
                 _ = self._queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
+
+    async def get_chunk(self) -> NDArray[np.float32]:
+        return await self._queue.get()
+
+    def extract_buffer(self) -> NDArray[np.float32]:
+        if not self.buffer:
+            return np.array([], dtype=np.float32)
+        data = np.concatenate(self.buffer)
+        self.buffer = []
+        return data.flatten()
+
+
+class AudioRecorder(BaseRecorder):
+    """
+    AudioRecorder implementation using native 'arecord' (ALSA) via subprocess.
+    This avoids PortAudio sample rate issues on Raspberry Pi by offloading resampling to ALSA tools.
+    """
+
+    process: subprocess.Popen[bytes] | None
+    _read_thread: threading.Thread | None
+    recording: bool
+
+    def __init__(self, sample_rate: int = 16000, device_index: int | str | None = None):
+        super().__init__(sample_rate=sample_rate, device_index=device_index)
+        self.process = None
+        self._read_thread = None
+
+    def start(self) -> None:
+        if self.recording:
+            return
+
+        self._reset()
 
         self.recording = True
 
@@ -161,26 +185,9 @@ class AudioRecorder:
 
                 if self.recording:
                     self.buffer.append(float_data)
-                    _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, float_data)
+                    if self._loop is not None:
+                        _ = self._loop.call_soon_threadsafe(self._queue.put_nowait, float_data)
 
             except Exception as e:
                 logger.error(f"Error reading from arecord: {e}")
                 break
-
-    async def get_chunk(self) -> NDArray[np.float32]:
-        return await self._queue.get()
-
-    def get_last_chunk(self, num_samples: int) -> NDArray[np.float32]:
-        if not self.buffer:
-            return np.array([], dtype=np.float32)
-        full = np.concatenate(self.buffer)
-        if len(full) < num_samples:
-            return full.flatten()
-        return full[-num_samples:].flatten()
-
-    def extract_buffer(self) -> NDArray[np.float32]:
-        if not self.buffer:
-            return np.array([], dtype=np.float32)
-        data = np.concatenate(self.buffer)
-        self.buffer = []
-        return data.flatten()

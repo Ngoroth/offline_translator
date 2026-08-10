@@ -1,6 +1,12 @@
 import pytest
 from pydantic import ValidationError
-from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings
+from app.core.config import (
+    AppSettings,
+    STTSettings,
+    LLMSettings,
+    TTSSettings,
+    SpeakerSettings,
+)
 
 
 def test_config_validation_valid(tmp_path):
@@ -8,17 +14,15 @@ def test_config_validation_valid(tmp_path):
     # Create dummy model files
     (tmp_path / "stt.bin").touch()
     (tmp_path / "llm.gguf").touch()
-    (tmp_path / "voice_a.onnx").touch()
-    (tmp_path / "voice_b.onnx").touch()
 
     settings = AppSettings(
         stt=STTSettings(model_path=str(tmp_path / "stt.bin")),
         llm=LLMSettings(model_path=str(tmp_path / "llm.gguf")),
         tts=TTSSettings(model_path=str(tmp_path / "voice_a.onnx")),
-        speaker_a_voice=str(tmp_path / "voice_a.onnx"),
-        speaker_b_voice=str(tmp_path / "voice_b.onnx"),
-        speaker_a_key="space",
-        speaker_b_key="alt",
+        speakers={
+            "a": SpeakerSettings(key="space", from_lang="en", to_lang="ru"),
+            "b": SpeakerSettings(key="alt", from_lang="ru", to_lang="en"),
+        },
     )
     assert settings.stt.model_path == str(tmp_path / "stt.bin")
 
@@ -31,7 +35,6 @@ def test_config_validation_missing_llm(tmp_path):
     when models haven't been downloaded yet.
     """
     (tmp_path / "stt.bin").touch()
-    (tmp_path / "voice.onnx").touch()
 
     # Should NOT raise ValidationError - validation deferred to StartupVerifier
     settings = AppSettings(
@@ -46,14 +49,15 @@ def test_config_validation_duplicate_keys(tmp_path):
     """Test validation fails if speaker keys are identical."""
     (tmp_path / "stt.bin").touch()
     (tmp_path / "llm.gguf").touch()
-    (tmp_path / "voice.onnx").touch()
 
     with pytest.raises(ValidationError) as excinfo:
         AppSettings(
             stt=STTSettings(model_path=str(tmp_path / "stt.bin")),
             llm=LLMSettings(model_path=str(tmp_path / "llm.gguf")),
             tts=TTSSettings(model_path=str(tmp_path / "voice.onnx")),
-            speaker_a_key="space",
-            speaker_b_key="space",  # Duplicate
+            speakers={
+                "a": SpeakerSettings(key="space", from_lang="en", to_lang="ru"),
+                "b": SpeakerSettings(key="space", from_lang="ru", to_lang="en"),  # Duplicate
+            },
         )
     assert "Speaker keys must be distinct" in str(excinfo.value)

@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "faster-whisper>=1.2.1",
-    "llama-cpp-python>=0.3.16",
+    "llama-cpp-python>=0.3.34",
     "loguru>=0.7.3",
     "numpy>=2.4.1",
     "piper-tts>=1.4.1",

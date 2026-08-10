@@ -89,32 +89,6 @@ async def test_audio_recorder_extract_buffer(mock_popen: MagicMock) -> None:
 
 @pytest.mark.asyncio
 @patch("app.core.audio.recorder.subprocess.Popen")
-async def test_audio_recorder_get_last_chunk(mock_popen: MagicMock) -> None:
-    """Test get_last_chunk retrieves the most recent samples."""
-    mock_process: Any = mock_popen.return_value
-    mock_process.poll.return_value = None
-    mock_process.stdout = MagicMock()
-    mock_process.stderr = MagicMock()
-
-    # Simulate audio data (S16_LE bytes) - sequential values for testing
-    test_samples = np.arange(1000, dtype=np.int16)
-    test_bytes = test_samples.tobytes()
-    mock_process.stdout.read.return_value = test_bytes
-
-    recorder = AudioRecorder(sample_rate=16000)
-    recorder.start()
-
-    import time
-
-    time.sleep(0.1)
-
-    # Get last 100 samples
-    chunk = recorder.get_last_chunk(100)
-    assert len(chunk) == 100
-
-
-@pytest.mark.asyncio
-@patch("app.core.audio.recorder.subprocess.Popen")
 async def test_audio_recorder_async_queue(mock_popen: MagicMock) -> None:
     """Test that AudioRecorder streams chunks via async queue."""
     mock_process: Any = mock_popen.return_value

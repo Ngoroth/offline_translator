@@ -1,7 +1,8 @@
 """E2E test fixtures for model downloads and caching.
 
-Provides session-scoped fixtures that download and cache test models
-from Hugging Face Hub for real model testing.
+Provides session-scoped fixtures that prefer already-downloaded models
+in the repo's models/ directory and fall back to downloading from
+Hugging Face Hub.
 """
 
 from pathlib import Path
@@ -12,12 +13,15 @@ from huggingface_hub import hf_hub_download, snapshot_download
 # Cache directory for test models (~535MB total)
 CACHE_DIR = Path.home() / ".cache" / "offline_translator_tests"
 
+# Repo-local models directory (preferred source)
+MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
+
 # STT model config
 STT_REPO = "Systran/faster-whisper-tiny"
 
 # LLM model config
-LLM_REPO = "Qwen/Qwen3-0.6B-GGUF"
-LLM_FILE = "Qwen3-0.6B-Q8_0.gguf"
+LLM_REPO = "unsloth/Qwen3.5-0.8B-GGUF"
+LLM_FILE = "Qwen3.5-0.8B-Q4_K_M.gguf"
 
 # TTS model config
 TTS_REPO = "rhasspy/piper-voices"
@@ -28,7 +32,10 @@ TTS_JSON_FILE = "en_US-lessac-medium.onnx.json"
 
 @pytest.fixture(scope="session")
 def stt_model_path() -> Path:
-    """Download and cache Whisper-tiny for E2E tests.
+    """Return the STT model path.
+
+    Prefers a local faster-whisper model directory in models/stt, otherwise
+    downloads and caches Whisper-tiny for E2E tests.
 
     faster-whisper expects a directory containing model files,
     not a single file. Uses snapshot_download to get full model.
@@ -36,6 +43,9 @@ def stt_model_path() -> Path:
     Returns:
         Path to the model directory.
     """
+    local = MODELS_DIR / "stt" / "tiny"
+    if (local / "model.bin").exists():
+        return local
     return Path(
         snapshot_download(
             repo_id=STT_REPO,
@@ -46,14 +56,17 @@ def stt_model_path() -> Path:
 
 @pytest.fixture(scope="session")
 def llm_model_path() -> Path:
-    """Download and cache Qwen3-0.6B-Q8_0.gguf for E2E tests.
+    """Return the path to the Qwen3.5-0.8B GGUF model.
 
-    Uses a small quantized model for fast testing while still
-    validating real LLM inference.
+    Prefers the repo-local copy in models/llm (used by the rpi profile),
+    otherwise downloads and caches Qwen3.5-0.8B-Q4_K_M.gguf.
 
     Returns:
         Path to the GGUF model file.
     """
+    local = MODELS_DIR / "llm" / LLM_FILE
+    if local.exists():
+        return local
     return Path(
         hf_hub_download(
             repo_id=LLM_REPO,
@@ -65,13 +78,18 @@ def llm_model_path() -> Path:
 
 @pytest.fixture(scope="session")
 def tts_model_path() -> Path:
-    """Download and cache Piper TTS model for E2E tests.
+    """Return the path to a Piper TTS model.
 
-    Downloads the ONNX model and its JSON config.
+    Prefers the repo-local English voice in models/tts, otherwise downloads
+    and caches the Piper TTS model for E2E tests.
 
     Returns:
         Path to the ONNX model file.
     """
+    local = MODELS_DIR / "tts" / "en_US-libritts_r-medium.onnx"
+    if local.exists() and local.with_suffix(".onnx.json").exists():
+        return local
+
     # Download the ONNX model file
     model_path = Path(
         hf_hub_download(

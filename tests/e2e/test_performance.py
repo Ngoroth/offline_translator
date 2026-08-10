@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings
+from app.core.config import AppSettings, STTSettings, LLMSettings, TTSSettings, SpeakerSettings
 from app.orchestrator.pipeline import TranslationPipeline
 from tests.mocks.mock_audio import MockAudioRecorder, MockAudioPlayer
 
@@ -82,6 +82,66 @@ class TestPerformanceNFR:
         # TTS should produce first chunk quickly (< 1s)
         assert first_chunk is not None, "TTS did not produce any audio"
         assert first_chunk_time < 1.0, f"TTS first chunk too slow: {first_chunk_time:.2f}s"
+
+    @pytest.mark.asyncio
+    async def test_llm_translation_latency_ru_to_en(self, llm_model_path: Path):
+        """Measure LLM translation latency for the reverse direction (RU->EN)."""
+        from app.services.llm import LLMService
+
+        llm = LLMService(
+            LLMSettings(
+                model_path=str(llm_model_path),
+                n_gpu_layers=0,
+                context_window=2048,
+                n_threads=4,
+            )
+        )
+
+        # Warm up
+        _ = await llm.translate("Привет", "Russian", "English")
+
+        # Measure
+        start = time.perf_counter()
+        _ = await llm.translate("Привет, как дела сегодня?", "Russian", "English")
+        elapsed = time.perf_counter() - start
+
+        print(f"\nLLM translation latency (RU->EN): {elapsed:.3f}s")
+
+        assert elapsed < 5.0, f"LLM too slow: {elapsed:.2f}s"
+
+    @pytest.mark.asyncio
+    async def test_stt_transcription_latency(
+        self,
+        stt_model_path: Path,
+        synthetic_audio_generator: Callable[..., np.ndarray],
+    ):
+        """Measure STT transcription latency and real-time factor on real audio."""
+        from app.services.stt import STTService
+
+        stt = STTService(
+            STTSettings(
+                model_path=str(stt_model_path),
+                language="en",
+                device="cpu",
+                compute_type="int8",
+            )
+        )
+
+        audio = synthetic_audio_generator(duration_seconds=2.0)
+
+        # Warm up
+        _ = await stt.transcribe(audio)
+
+        # Measure transcription of ~2s of audio
+        start = time.perf_counter()
+        _ = await stt.transcribe(audio)
+        elapsed = time.perf_counter() - start
+
+        rtf = elapsed / 2.0
+        print(f"\nSTT transcription latency (2s audio): {elapsed:.3f}s (RTF: {rtf:.2f})")
+
+        # Whisper-tiny should transcribe faster than real-time on most CPUs
+        assert elapsed < 2.0, f"STT too slow: {elapsed:.2f}s (RTF: {rtf:.2f})"
 
 
 @pytest.mark.benchmark
@@ -203,6 +263,14 @@ class TestPipelineLatency:
             stt=STTSettings(model_path=str(stt_path)),
             llm=LLMSettings(model_path=str(llm_path)),
             tts=TTSSettings(model_path=str(tts_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_path)
+                ),
+            },
         )
 
         stt = STTService(settings.stt)
@@ -296,6 +364,14 @@ class TestPipelineLatency:
             stt=STTSettings(model_path=str(stt_model_path)),
             llm=LLMSettings(model_path=str(llm_model_path)),
             tts=TTSSettings(model_path=str(tts_model_path)),
+            speakers={
+                "a": SpeakerSettings(
+                    key="space", from_lang="en", to_lang="ru", tts_model=str(tts_model_path)
+                ),
+                "b": SpeakerSettings(
+                    key="alt_r", from_lang="ru", to_lang="en", tts_model=str(tts_model_path)
+                ),
+            },
         )
 
         pipeline = TranslationPipeline(

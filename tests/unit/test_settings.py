@@ -37,10 +37,19 @@ def test_load_settings_full_schema(tmp_path: Path):
                     "n_threads": 4,
                 },
                 "tts": {"model_path": str(tts_model), "speaker_id": 0},
-                "input": {"ptt_a": "space", "ptt_b": "alt"},
                 "speakers": {
-                    "a": {"from_lang": "English", "to_lang": "Russian"},
-                    "b": {"from_lang": "Russian", "to_lang": "English"},
+                    "a": {
+                        "key": "space",
+                        "from_lang": "en",
+                        "to_lang": "ru",
+                        "tts_model": str(tts_model),
+                    },
+                    "b": {
+                        "key": "alt",
+                        "from_lang": "ru",
+                        "to_lang": "en",
+                        "tts_model": str(tts_model),
+                    },
                 },
             }
         },
@@ -68,10 +77,6 @@ def test_load_settings_full_schema(tmp_path: Path):
     # Assertions for TTS
     assert settings.tts.model_path == str(tts_model)
     assert settings.tts.speaker_id == 0
-
-    # Assertions for Input
-    assert settings.input.ptt_a == "space"
-    assert settings.input.ptt_b == "alt"
 
 
 def test_load_default_config_yaml():
