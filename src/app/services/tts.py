@@ -8,6 +8,7 @@ from typing import Protocol, cast, TYPE_CHECKING
 from app.core.config import TTSSettings
 
 if TYPE_CHECKING:
+    from app.core.performance import PerformanceEventEmitter
     from app.orchestrator.session import SessionManager
 
 try:
@@ -43,6 +44,7 @@ class PiperVoiceProto(Protocol):
 class TTSService:
     # Remove obscured declarations that were causing redeclaration warnings
     voices: dict[str, PiperVoiceProto]
+    performance: "PerformanceEventEmitter | None"
     # default_voice will be set in __init__
     # settings will be set in __init__
     # model_rate will be set in __init__
@@ -55,12 +57,14 @@ class TTSService:
         settings: TTSSettings,
         extra_models: list[str] | None = None,
         session_manager: "SessionManager | None" = None,
+        performance: "PerformanceEventEmitter | None" = None,
     ):
         if PiperVoice is None or SynthesisConfig is None:
             raise ImportError("piper-tts is not installed")
 
         self.settings: TTSSettings = settings
         self.session_manager: "SessionManager | None" = session_manager
+        self.performance = performance
         self.voices = {}
 
         # Collect all models to load
@@ -240,8 +244,30 @@ class TTSService:
         # Start producer in thread
         _ = asyncio.create_task(asyncio.to_thread(producer))
 
+        first_chunk_emitted = False
+        if self.performance and session_id:
+            self.performance.emit(
+                session_id,
+                "tts_start",
+                input_chars=len(text),
+            )
+
         while True:
             chunk_bytes = await queue.get()
             if chunk_bytes is None:
+                if self.performance and session_id:
+                    self.performance.emit(
+                        session_id,
+                        "tts_end",
+                        input_chars=len(text),
+                    )
                 break
+            if not first_chunk_emitted and self.performance and session_id:
+                self.performance.emit(
+                    session_id,
+                    "tts_first_chunk",
+                    input_chars=len(text),
+                    audio_ms=round(len(chunk_bytes) / 4 * 1000 / self.target_rate),
+                )
+                first_chunk_emitted = True
             yield chunk_bytes

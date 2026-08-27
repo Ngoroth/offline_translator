@@ -575,6 +575,7 @@ name = "offline-translator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "evdev", marker = "sys_platform == 'linux'" },
     { name = "faster-whisper" },
     { name = "llama-cpp-python" },
     { name = "loguru" },
@@ -601,6 +602,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "basedpyright", marker = "extra == 'dev'", specifier = ">=1.1.0" },
+    { name = "evdev", marker = "sys_platform == 'linux'", specifier = ">=1.6.1" },
     { name = "faster-whisper", specifier = ">=1.2.1" },
     { name = "huggingface-hub", marker = "extra == 'dev'", specifier = ">=0.20.0" },
     { name = "llama-cpp-python", specifier = ">=0.3.34" },

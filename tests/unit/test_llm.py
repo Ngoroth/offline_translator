@@ -67,6 +67,36 @@ async def test_translate_success(mock_settings: LLMSettings, mock_llama: MagicMo
     assert "translator" in call_args.kwargs["messages"][0]["content"]
     assert call_args.kwargs["messages"][1]["role"] == "user"
     assert call_args.kwargs["messages"][1]["content"] == "Hello"
+    assert call_args.kwargs["seed"] == mock_settings.seed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source_lang", "target_lang", "input_text", "expected"),
+    [
+        ("en", "ru", "Hello world.", "Привет, мир."),
+        ("ru", "en", "Привет, мир.", "Hello, world."),
+    ],
+)
+async def test_translate_deterministic_decode_regression_both_directions(
+    mock_settings: LLMSettings,
+    mock_llama: MagicMock,
+    source_lang: str,
+    target_lang: str,
+    input_text: str,
+    expected: str,
+) -> None:
+    mock_llama.return_value.create_chat_completion.return_value = {
+        "choices": [{"message": {"content": expected}}]
+    }
+    service = LLMService(mock_settings)
+
+    result = await service.translate(input_text, source_lang, target_lang)
+
+    assert result == expected
+    call_args = mock_llama.return_value.create_chat_completion.call_args
+    assert call_args.kwargs["seed"] == 1
+    assert f"from {source_lang} to {target_lang}" in call_args.kwargs["messages"][0]["content"]
 
 
 @pytest.mark.asyncio

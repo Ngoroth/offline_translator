@@ -4,6 +4,11 @@ import numpy as np
 from loguru import logger
 
 from app.core.config import AppSettings
+from app.core.performance import (
+    PerformanceEventEmitter,
+    audio_duration_ms,
+    build_profile_fingerprint,
+)
 from app.core.types import AudioPayload, TextPayload, TranslationPayload
 from app.core.audio import AudioRecorder, AudioPlayer
 from app.orchestrator.session import Session, SessionState, SessionManager
@@ -26,6 +31,7 @@ class TranslationPipeline:
         tts: TTSService,
         recorder: AudioRecorder,
         player: AudioPlayer,
+        profile_name: str = "unknown",
     ):
         self.settings = settings
         self.stt = stt
@@ -33,13 +39,18 @@ class TranslationPipeline:
         self.tts = tts
         self.recorder = recorder
         self.player = player
+        self.profile_name = profile_name
 
         self.session_manager = SessionManager()
+        self.performance = PerformanceEventEmitter()
 
         # Inject session manager into services for cooperative cancellation
         self.stt.session_manager = self.session_manager
         self.llm.session_manager = self.session_manager
         self.tts.session_manager = self.session_manager
+        self.stt.performance = self.performance
+        self.llm.performance = self.performance
+        self.tts.performance = self.performance
 
         self.session: Session | None = None
         self.tasks: list[Task[None]] = []
@@ -87,6 +98,11 @@ class TranslationPipeline:
             tts_voice=tts_voice,
         )
         self.session.state = SessionState.LISTENING
+        self.performance.begin_run(
+            self.session.session_id,
+            build_profile_fingerprint(self.settings, self.profile_name, tts_voice),
+        )
+        self.performance.begin_trial(self.session.session_id)
 
         logger.info(
             f"Session {self.session.session_id} started for Role {role}: "
@@ -127,9 +143,10 @@ class TranslationPipeline:
         if not self.session:
             return
 
-        logger.info(f"Stopping session {self.session.session_id}")
+        session_id = self.session.session_id
+        logger.info(f"Stopping session {session_id}")
         self.session.cancel_event.set()
-        self.session_manager.cancel_session(self.session.session_id)
+        self.session_manager.cancel_session(session_id)
 
         # Stop Player immediately to clear hardware buffer
         await asyncio.to_thread(self.player.stop)
@@ -153,6 +170,7 @@ class TranslationPipeline:
 
         self.tasks = []
         self._clear_queues()
+        self.performance.finish_trial(session_id, "trial_cancelled")
         self.session = None
 
     def _clear_queues(self) -> None:
@@ -173,6 +191,8 @@ class TranslationPipeline:
         if not self.session:
             return
 
+        session_id = self.session.session_id
+        self.performance.emit(session_id, "ptt_release")
         logger.info("Input complete (PTT Released). Processing...")
         self.session.state = SessionState.PROCESSING
 
@@ -208,6 +228,7 @@ class TranslationPipeline:
         if not self.tasks:
             return
 
+        session_id = self.session.session_id if self.session else None
         # Wait for all tasks to complete (they should exit when they see sentinels)
         # We shield from cancellation just in case, but usually we just await
         try:
@@ -216,6 +237,8 @@ class TranslationPipeline:
             logger.error(f"Error waiting for completion: {e}")
 
         self.tasks = []
+        if session_id:
+            self.performance.finish_trial(session_id)
         self.session = None  # Session over
 
     async def _vad_worker(self) -> None:
@@ -307,14 +330,14 @@ class TranslationPipeline:
                         session_id=session_id,
                     )
                     if text:
-                        logger.info(f"STT Transcribed: {text}")
+                        logger.info("STT transcription completed ({} chars)", len(text))
 
                         llm_payload: TextPayload = {
                             "text": text,
                             "language": self.session.source_lang,
                             "session_id": session_id,
                         }
-                        logger.debug(f"Sending to LLM queue: {llm_payload}")
+                        logger.debug("Sending {} chars to LLM queue", len(text))
                         await self.llm_queue.put(llm_payload)
                         logger.debug("Sent to LLM queue successfully")
                 except Exception as e:
@@ -347,7 +370,10 @@ class TranslationPipeline:
                     session_id = payload["session_id"]
 
                     logger.info(
-                        f"LLM translating: '{payload['text']}' from {source_lang} to {target_lang}"
+                        "LLM translating ({} chars) from {} to {}",
+                        len(payload["text"]),
+                        source_lang,
+                        target_lang,
                     )
 
                     translated_text = await self.llm.translate(
@@ -355,7 +381,7 @@ class TranslationPipeline:
                     )
 
                     if translated_text:
-                        logger.info(f"LLM Translated: {translated_text}")
+                        logger.info("LLM translation completed ({} chars)", len(translated_text))
                         await self.tts_queue.put(
                             {
                                 "text": translated_text,
@@ -413,6 +439,7 @@ class TranslationPipeline:
             return
 
         logger.debug("Player Worker started")
+        first_playback = False
         try:
             while not self.session.cancel_event.is_set():
                 chunk = await self.player_queue.get()
@@ -435,6 +462,13 @@ class TranslationPipeline:
 
                 try:
                     data = np.frombuffer(chunk, dtype=np.float32)
+                    if not first_playback:
+                        self.performance.emit(
+                            self.session.session_id,
+                            "playback_submit",
+                            audio_ms=audio_duration_ms(len(data), self.player.sample_rate),
+                        )
+                        first_playback = True
                     await asyncio.to_thread(self.player.play, data)
                 except Exception as e:
                     session_id = self.session.session_id if self.session else "unknown"

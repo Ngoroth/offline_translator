@@ -8,6 +8,7 @@ def test_llm_settings_defaults():
     settings = LLMSettings(model_path="models/test.gguf")
     assert settings.context_window == 2048
     assert settings.n_threads > 0  # Should default to something reasonable
+    assert settings.seed == 1
 
 
 def test_llm_settings_model_path_validation():

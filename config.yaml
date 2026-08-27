@@ -23,6 +23,7 @@ profiles:
       n_gpu_layers: -1
       context_window: 4096
       n_threads: 8
+      seed: 1
 
     tts:
       model_path: "models/tts/en_US-libritts_r-medium.onnx"
@@ -69,6 +70,7 @@ profiles:
       n_gpu_layers: 0
       context_window: 512  # Reduced for faster inference (translation doesn't need large context)
       n_threads: 4  # Measured optimal on Pi 4 (4 cores, memory-bound)
+      seed: 1  # Fixed decoding for reproducible translations
 
     tts:
       model_path: "models/tts/en_US-libritts_r-medium.onnx"

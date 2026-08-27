@@ -6,6 +6,7 @@ from app.core.config import STTSettings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from app.core.performance import PerformanceEventEmitter
     from app.orchestrator.session import SessionManager
 
 
@@ -32,7 +33,14 @@ class STTService:
     Speech-to-Text service using Faster-Whisper.
     """
 
-    def __init__(self, settings: STTSettings, session_manager: "SessionManager | None" = None):
+    performance: "PerformanceEventEmitter | None"
+
+    def __init__(
+        self,
+        settings: STTSettings,
+        session_manager: "SessionManager | None" = None,
+        performance: "PerformanceEventEmitter | None" = None,
+    ):
         """
         Initialize the STT service with settings.
         Model is loaded lazily on first transcription or can be loaded explicitly.
@@ -43,6 +51,7 @@ class STTService:
         """
         self.settings: STTSettings = settings
         self.session_manager: "SessionManager | None" = session_manager
+        self.performance = performance
         self._model: WhisperModel | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
 
@@ -149,6 +158,12 @@ class STTService:
                     logger.debug(f"STT: Locked pre-check cancelled for session {session_id}")
                     return None
 
+                if self.performance and session_id:
+                    self.performance.emit(
+                        session_id,
+                        "stt_start",
+                        audio_ms=round(len(audio) * 1000 / 16000),
+                    )
                 text, info = await asyncio.to_thread(_run_transcription)
 
             if (
@@ -160,6 +175,13 @@ class STTService:
                 return None
 
             duration = asyncio.get_event_loop().time() - start_time
+            if self.performance and session_id:
+                self.performance.emit(
+                    session_id,
+                    "stt_end",
+                    audio_ms=round(len(audio) * 1000 / 16000),
+                    output_chars=len(text),
+                )
             logger.debug(
                 "Transcription completed in {:.2f}s. Detected language: {} ({:.2f} probability)",
                 duration,

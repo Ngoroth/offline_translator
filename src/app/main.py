@@ -1,5 +1,6 @@
 import asyncio
 import argparse
+import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
@@ -35,6 +36,12 @@ def parse_cli_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--profile",
         metavar="NAME",
         help="Use profile NAME from config.yaml for this run.",
+    )
+    _ = parser.add_argument(
+        "--n-threads",
+        type=int,
+        metavar="N",
+        help="Override the LLM CPU thread count for this run.",
     )
     _ = parser.add_argument(
         "--playback-during-recording",
@@ -81,6 +88,7 @@ def get_input_handler(settings: AppSettings) -> BaseInput:
 async def main(
     profile_override: str | None = None,
     playback_during_recording_override: bool | None = None,
+    n_threads_override: int | None = None,
 ) -> int:
     # 1. Setup Logging (Must be first for diagnostics)
     setup_logging()
@@ -89,9 +97,13 @@ async def main(
     try:
         # 2. Load Config
         settings = load_settings(profile_override=profile_override)
+        if n_threads_override is not None:
+            if n_threads_override < 1:
+                raise ValueError("n_threads override must be greater than zero")
+            settings.llm.n_threads = n_threads_override
         if playback_during_recording_override is not None:
             settings.audio.playback_during_recording = playback_during_recording_override
-        active_profile = profile_override or _get_current_profile_key()
+        active_profile = profile_override or os.getenv("PERF_PROFILE") or _get_current_profile_key()
         logger.info(f"Profile: {active_profile}")
         logger.info(f"Platform: {settings.platform} ({settings.input_mode})")
 
@@ -175,6 +187,11 @@ async def main(
             recorder=recorder,
             player=player,
         )
+        try:
+            pipeline.profile_name = active_profile
+        except AttributeError:
+            # Keep compatibility with lightweight test/integration pipeline stubs.
+            pass
 
         orchestrator = Orchestrator(pipeline=pipeline, input_provider=input_handler)
 
@@ -213,18 +230,29 @@ def cli(argv: Sequence[str] | None = None) -> int:
     cli_args = parse_cli_args(argv)
     profile_override = getattr(cli_args, "profile", None)
     playback_during_recording_override = getattr(cli_args, "playback_during_recording", None)
+    n_threads_override = getattr(cli_args, "n_threads", None)
     if profile_override is not None and not isinstance(profile_override, str):
         raise TypeError("Parsed CLI profile must be a string or None")
     if playback_during_recording_override is not None and not isinstance(
         playback_during_recording_override, bool
     ):
         raise TypeError("Parsed playback override must be a bool or None")
-    if playback_during_recording_override is None:
+    if n_threads_override is not None and not isinstance(n_threads_override, int):
+        raise TypeError("Parsed n_threads override must be an int or None")
+    if playback_during_recording_override is None and n_threads_override is None:
         return asyncio.run(main(profile_override=profile_override))
+    if n_threads_override is None:
+        return asyncio.run(
+            main(
+                profile_override=profile_override,
+                playback_during_recording_override=playback_during_recording_override,
+            )
+        )
     return asyncio.run(
         main(
             profile_override=profile_override,
             playback_during_recording_override=playback_during_recording_override,
+            n_threads_override=n_threads_override,
         )
     )
 

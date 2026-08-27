@@ -9,6 +9,7 @@ from loguru import logger
 from app.core.config import LLMSettings
 
 if TYPE_CHECKING:
+    from app.core.performance import PerformanceEventEmitter
     from app.orchestrator.session import SessionManager
 
 
@@ -36,11 +37,17 @@ class LLMModelLoadError(LLMError):
 
 @final
 class LLMService:
+    performance: "PerformanceEventEmitter | None"
+
     def __init__(
-        self, settings: LLMSettings, session_manager: "SessionManager | None" = None
+        self,
+        settings: LLMSettings,
+        session_manager: "SessionManager | None" = None,
+        performance: "PerformanceEventEmitter | None" = None,
     ) -> None:
         self.settings = settings
         self.session_manager = session_manager
+        self.performance = performance
         self._model: Llama | None = None
         self._lock: asyncio.Lock = asyncio.Lock()
         self._init_model()
@@ -96,11 +103,18 @@ class LLMService:
                     logger.debug(f"LLM: Locked pre-check cancelled for session {session_id}")
                     return None
 
+                if self.performance and session_id:
+                    self.performance.emit(
+                        session_id,
+                        "llm_start",
+                        input_chars=len(text),
+                    )
                 inference_start = time.perf_counter()
                 response = await asyncio.to_thread(
                     self._model.create_chat_completion,
                     messages=messages,
                     temperature=0.1,
+                    seed=self.settings.seed,
                 )
                 inference_time = time.perf_counter() - inference_start
                 logger.info(f"LLM inference took {inference_time:.2f}s")
@@ -119,6 +133,14 @@ class LLMService:
 
             # Clean LLM output (remove thinking tags, etc.)
             cleaned = clean_llm_output(content) if content else ""
+
+            if self.performance and session_id:
+                self.performance.emit(
+                    session_id,
+                    "llm_end",
+                    input_chars=len(text),
+                    output_chars=len(cleaned),
+                )
 
             total_time = time.perf_counter() - start_time
             logger.info(

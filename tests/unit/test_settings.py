@@ -73,6 +73,7 @@ def test_load_settings_full_schema(tmp_path: Path):
     # Assertions for LLM
     assert settings.llm.model_path == str(llm_model)
     assert settings.llm.n_threads == 4
+    assert settings.llm.seed == 1
 
     # Assertions for TTS
     assert settings.tts.model_path == str(tts_model)
@@ -89,6 +90,7 @@ def test_load_default_config_yaml():
     settings = load_settings(config_path)
     assert isinstance(settings, AppSettings)
     assert settings.stt.language == "en"
+    assert settings.llm.seed == 1
 
 
 def test_load_settings_profile_override_takes_precedence_and_is_read_only(tmp_path: Path):

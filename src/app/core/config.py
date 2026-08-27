@@ -30,6 +30,7 @@ class LLMSettings(BaseModel):
     n_gpu_layers: int = -1
     context_window: int = Field(default=2048, ge=512)
     n_threads: int = Field(default=4, ge=1)
+    seed: int = Field(default=1, ge=0)
 
     @field_validator("model_path")
     @classmethod
